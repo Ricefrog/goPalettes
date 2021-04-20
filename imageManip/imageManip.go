@@ -10,6 +10,9 @@ import (
 	"errors"
 	"log"
 	"sync"
+	"strconv"
+	"strings"
+	"math"
 )
 
 var IMAGE_PATH = "./images/"
@@ -43,7 +46,7 @@ func CreateColorFrequencyMap(img image.Image) (map[string]int) {
 	colFreqMap := make(map[string]int)
 	domains := CreateDomains(img)
 	allMaps := make([]map[string]int, CORES_TO_USE)
-	fmt.Println(domains)
+	fmt.Println("domains:", domains)
 
 	var wg sync.WaitGroup
 	wg.Add(CORES_TO_USE)
@@ -102,9 +105,9 @@ newMap map[string]int, wg *sync.WaitGroup) (map[string]int) {
 }
 
 func ColorToString(col color.Color) string {
-	colAsserted, _ := col.(color.NRGBA) // Type assertion
-	retString := fmt.Sprintf("(%d, %d, %d, %d)",
-	colAsserted.R, colAsserted.G, colAsserted.B, colAsserted.A)
+	r, g, b, a := col.RGBA()
+	retString := fmt.Sprintf("%d, %d, %d, %d",
+	uint8(r), uint8(g), uint8(b), uint8(a))
 	return retString
 }
 
@@ -143,6 +146,130 @@ func GetMostProminentColors(n int, colFreqMap map[string]int) []ColAndFreq {
 	return ret
 }
 
+// convert rgb values in string to an array of three
+func ColStringToArr(str string) (retArr [3]float64) {
+	arr := strings.Split(str, " ")
+	//fmt.Println(arr)
+	arr = arr[:3]
+	for i, val := range arr {
+		temp, _ := strconv.Atoi(val[:len(val)-1])
+		retArr[i] = float64(temp)
+	}
+	return
+}
+
+// create groups of similar colors according to some distance tolerance value
+func SimplifyColFreqMap(
+	tolerance float64,
+	colFreqMap map[string]int,
+) map[string]int {
+	fmt.Println("SimplifyColMap was called.")
+	// the keys of the map act as representatives of the color group
+	colorGroups := make(map[string][]ColAndFreq)
+
+	// grab a starting color to compare other colors to.
+	for k, v := range colFreqMap {
+		cafArr := make([]ColAndFreq, 1)
+		cafArr = append(cafArr, ColAndFreq{
+			colString: k,
+			frequency: v,
+		})
+		colorGroups[k] = cafArr
+		delete(colFreqMap, k)
+		break
+	}
+	fmt.Println("First color group has been initialized")
+
+	for k, v := range colFreqMap {
+		//fmt.Println("Outer loop.")
+		if k == "" {
+			fmt.Println("k: %s, v: %d", k, v)
+			os.Exit(1)
+		}
+		groupFound := false
+		newMember := ColAndFreq{
+			colString: k,
+			frequency: v,
+		}
+		for rep, _ := range colorGroups {
+			//fmt.Println("Inner loop.")
+			// if a color fits into a color group add it to the array
+			// and delete it from the original map.
+			if distance(ColStringToArr(rep), ColStringToArr(k)) < tolerance {
+				//fmt.Println("inner if entered.")
+				colorGroups[rep] = append(colorGroups[rep], newMember)
+				//delete(colFreqMap, k)
+				groupFound = true
+				break
+			}
+		}
+		// if the color couldn't find a group to fit into, create
+		// a new color group with that color as the rep
+		if !groupFound {
+			//fmt.Println("outer if entered.")
+			colorGroups[k] = []ColAndFreq{newMember}
+		}
+	}
+	fmt.Println("Loops exited.")
+	// merge color groups into a return color frequency map.
+	return mergeColorGroups(colorGroups)
+}
+
+func mergeColorGroups(
+	colorGroups map[string][]ColAndFreq,
+) map[string]int {
+	fmt.Println("mergeColorGroups called.")
+	merged := make(map[string]int)
+	for _, v := range colorGroups {
+		retVal := mergeColAndFreqArr(v)
+		merged[retVal.colString] = retVal.frequency
+	}
+	return merged
+}
+
+// takes an array of ColAndFreq, gets its average color and sums the 
+// frequencies of each element.
+func mergeColAndFreqArr(cols []ColAndFreq) ColAndFreq {
+	totalColors := float64(len(cols))
+	frequency := 0
+	r, g, b := 0.0, 0.0, 0.0
+	for _, col := range cols {
+		// for each element convert string into array and add to 
+		// color sums.
+		//fmt.Printf("\"%s\"\n", col.colString)
+		if col.colString == "" {
+			fmt.Println(col)
+		}
+		colArr := ColStringToArr(col.colString)
+		r += colArr[0]
+		g += colArr[1]
+		b += colArr[2]
+		frequency += col.frequency
+	}
+
+	r /= totalColors
+	g /= totalColors
+	b /= totalColors
+	rS, gS, bS := strconv.Itoa(int(r)), strconv.Itoa(int(g)), strconv.Itoa(int(b))
+	tempStrArr := []string{rS, gS, bS, "255"}
+	colString := strings.Join(tempStrArr, ", ")
+
+	retColAndFreq := ColAndFreq{
+		colString,
+		frequency,
+	}
+
+	return retColAndFreq
+}
+
+func distance(p1 [3]float64, p2 [3]float64) float64 {
+	return math.Sqrt(sq(p1[0]-p2[0]) + sq(p1[1]-p2[1]) + sq(p1[2]-p2[2]))
+}
+
+func sq(a float64) float64 {
+	return a * a
+}
+
 func Stub_1() {
 	s, e, err := ParseArgs()
 	startPath := IMAGE_PATH+s
@@ -160,13 +287,26 @@ func Stub_1() {
 	defer originalFile.Close()
 
 	originalData, _, err := image.Decode(originalFile)
+	if err != nil {
+		log.Fatal(err)
+	}
 	colorFrequencyMap := CreateColorFrequencyMap(originalData)
 	fmt.Println(colorFrequencyMap)
 	fmt.Printf("%d unique colors found.\n", len(colorFrequencyMap))
+
+	cfmCopy := make(map[string]int)
+	for k, v := range colorFrequencyMap {
+		cfmCopy[k] = v
+	}
+
 	fmt.Printf("Most prominent color: %v\n",
-	MostProminentColor(colorFrequencyMap))
+		MostProminentColor(cfmCopy))
 
 	n := 5
-	fmt.Printf("%d most prominent colors: %v", n,
+	fmt.Printf("%d most prominent colors: %v\n", n,
 	GetMostProminentColors(n, colorFrequencyMap))
+
+	tolerance := 10.0
+	fmt.Printf("%d most prominent colors (merged): %v\n", n,
+	GetMostProminentColors(n, SimplifyColFreqMap(tolerance, cfmCopy)))
 }
