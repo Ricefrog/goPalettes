@@ -167,25 +167,8 @@ func SimplifyColFreqMap(
 	// the keys of the map act as representatives of the color group
 	colorGroups := make(map[string][]ColAndFreq)
 
-	// grab a starting color to compare other colors to.
-	for k, v := range colFreqMap {
-		cafArr := make([]ColAndFreq, 1)
-		cafArr = append(cafArr, ColAndFreq{
-			colString: k,
-			frequency: v,
-		})
-		colorGroups[k] = cafArr
-		delete(colFreqMap, k)
-		break
-	}
-	fmt.Println("First color group has been initialized")
-
 	for k, v := range colFreqMap {
 		//fmt.Println("Outer loop.")
-		if k == "" {
-			fmt.Println("k: %s, v: %d", k, v)
-			os.Exit(1)
-		}
 		groupFound := false
 		newMember := ColAndFreq{
 			colString: k,
@@ -210,9 +193,26 @@ func SimplifyColFreqMap(
 			colorGroups[k] = []ColAndFreq{newMember}
 		}
 	}
-	fmt.Println("Loops exited.")
+	fmt.Printf("Loops exited. %d color groups created.\n", len(colorGroups))
 	// merge color groups into a return color frequency map.
 	return mergeColorGroups(colorGroups)
+}
+
+// used this for debugging
+func countEmptyStrings(colorGroups map[string][]ColAndFreq) {
+	count := 0
+	emptyArrs := make(map[string][]ColAndFreq)
+	for k, v := range colorGroups {
+		for _, col := range v {
+			if col.colString == "" {
+				count++
+				fmt.Println(col)
+				emptyArrs[k] = v
+			}
+		}
+	}
+	fmt.Printf("%d empty elements found.\n", count)
+	fmt.Println(emptyArrs)
 }
 
 func mergeColorGroups(
@@ -240,6 +240,7 @@ func mergeColAndFreqArr(cols []ColAndFreq) ColAndFreq {
 		if col.colString == "" {
 			fmt.Println(col)
 		}
+		// 
 		colArr := ColStringToArr(col.colString)
 		r += colArr[0]
 		g += colArr[1]
@@ -291,13 +292,15 @@ func Stub_1() {
 		log.Fatal(err)
 	}
 	colorFrequencyMap := CreateColorFrequencyMap(originalData)
-	fmt.Println(colorFrequencyMap)
+	//fmt.Println(colorFrequencyMap)
+	// colorFrequency map does not have "" as a key.
 	fmt.Printf("%d unique colors found.\n", len(colorFrequencyMap))
 
 	cfmCopy := make(map[string]int)
 	for k, v := range colorFrequencyMap {
 		cfmCopy[k] = v
 	}
+	// cfmCopy does not have "" as a key
 
 	fmt.Printf("Most prominent color: %v\n",
 		MostProminentColor(cfmCopy))
@@ -306,7 +309,7 @@ func Stub_1() {
 	fmt.Printf("%d most prominent colors: %v\n", n,
 	GetMostProminentColors(n, colorFrequencyMap))
 
-	tolerance := 10.0
+	tolerance := 20.0
 	fmt.Printf("%d most prominent colors (merged): %v\n", n,
 	GetMostProminentColors(n, SimplifyColFreqMap(tolerance, cfmCopy)))
 }
