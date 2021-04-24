@@ -313,3 +313,10 @@ func Stub_1() {
 	fmt.Printf("%d most prominent colors (merged): %v\n", n,
 	GetMostProminentColors(n, SimplifyColFreqMap(tolerance, cfmCopy)))
 }
+
+func ExtractPalette(uploaded image.Image, colsToExtract int) []ColAndFreq {
+	tolerance := 20.0
+	colorFrequencyMap := CreateColorFrequencyMap(uploaded)
+	colorFrequencyMap = SimplifyColFreqMap(tolerance, colorFrequencyMap)
+	return GetMostProminentColors(colsToExtract, colorFrequencyMap)
+}
