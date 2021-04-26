@@ -27,7 +27,6 @@ body {
 
 .color-block {
 	flex: 1;
-	background-color: lightblue;
 	border: solid black .2em;
 	padding: .5em;
 }

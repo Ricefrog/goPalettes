@@ -30,7 +30,7 @@ func root(w http.ResponseWriter, r *http.Request) {
 }
 
 func extract(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("Req sent to extract.")
+	fmt.Println("\nReq sent to extract.")
 	// get the content from the POSTed from
 	r.ParseMultipartForm(10485760)
 	file, _, err := r.FormFile("image")
@@ -57,7 +57,16 @@ func extract(w http.ResponseWriter, r *http.Request) {
 	}
 
 	colors := imageManip.ExtractPalette(uploadedImage, numOfColors)
+	fmt.Println("Colors:", colors)
+
 	ret, err := json.Marshal(colors)
+	if err != nil {
+		fmt.Println("Error marshalling json.")
+		fmt.Println(err)
+		return
+	}
+
+	fmt.Println("Sending json:", string(ret))
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(ret)
 	return

@@ -3,17 +3,34 @@ import React, { useState } from 'react';
 const API_URL = 'http://localhost:8080/api';
 
 const ExtractionBlock = () => {
-	const [numCols, setNumCols] = useState(3)
-	const [selectedFile, setSelectedFile] = useState(undefined)
+	const placeholderColor = "#DAF7A6";
 
-	const submitForm = () => {
+	const defaultColor = {
+		color: placeholderColor,
+		frequency: 0,
+	};
+
+	const [numCols, setNumCols] = useState(3);
+	const [selectedFile, setSelectedFile] = useState(undefined);
+	const [palette, setPalette] = useState(
+		[
+			defaultColor, 
+			defaultColor, 
+			defaultColor, 
+		]
+	);
+
+	const submitForm = (e) => {
+		e.preventDefault();
+
 		console.log('Uploading extract form.');
 		const formData = new FormData();
-		formData.append('image', selectedFile)
-		formData.append('numOfColors', numCols)
+		formData.append('image', selectedFile);
+		formData.append('numOfColors', numCols);
 
 		const options = {
 			method: 'POST',
+			mode: 'no-cors',
 			headers: {
 				'Content-Type': 'multipart/form-data',
 			},
@@ -25,10 +42,21 @@ const ExtractionBlock = () => {
 		.then(response => response.json())
 		.then(result => {
 			console.log('Success:', result);
+			setPalette(result);
 		})
 		.catch(error => {
 			console.error('Error:', error);
 		});
+	}
+
+	const colHandler = (num) => {
+		// change numCols in addition to palette
+		setNumCols(num);
+		const newPalette = [];
+		for (let i = 0; i < num; i++) {
+			newPalette.push(defaultColor);
+		}
+		setPalette(newPalette);
 	}
 
 	return (
@@ -36,12 +64,12 @@ const ExtractionBlock = () => {
 			<PaletteExtractForm 
 				onSubmit={submitForm} 
 				numCols={numCols}
-				setNumCols={setNumCols}
+				setNumCols={colHandler}
 				selectedFile={selectedFile}
 				setSelectedFile={setSelectedFile}
 			/>
 			<DisplayPalette 
-				numCols={numCols}
+				palette={palette}
 			/>
 		</div>
 	);
@@ -55,7 +83,7 @@ const PaletteExtractForm = (props) => {
 	}
 
 	return (
-		<form onSubmit={props.onSubmit}>
+		<form onSubmit={(e) => props.onSubmit(e)}>
 			<div>Extract a palette from a file.</div>
 			<label htmlFor="extractNum">Colors to extract:</label>
 			<select 
@@ -77,10 +105,18 @@ const PaletteExtractForm = (props) => {
 	);
 }
 
-const DisplayPalette = ({ numCols }) => {
+const DisplayPalette = ({ palette }) => {
 	const blocks = [];
-	for (let i = 0; i < numCols; i++) {
-		blocks.push(<div className="color-block" key={i}>color {i}</div>);
+	for (let i = 0; i < palette.length; i++) {
+		blocks.push(
+			<div 
+				className="color-block" 
+				style={{backgroundColor: palette[i].color}}
+				key={i}
+			>
+				{palette[i].color}: {palette[i].frequency}
+			</div>
+	);
 	}
 
 	return (

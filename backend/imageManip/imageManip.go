@@ -26,8 +26,8 @@ type Domain struct {
 }
 
 type ColAndFreq struct {
-	colString string
-	frequency int
+	ColString string `json:"color"`
+	Frequency int `json:"frequency"`
 }
 
 func ParseArgs() (s string, e string, err error) {
@@ -97,8 +97,8 @@ newMap map[string]int, wg *sync.WaitGroup) (map[string]int) {
 
 	for i := dom.xLower; i < dom.xUpper; i++ {
 		for j := dom.yLower; j < dom.yUpper; j++ {
-			colString := ColorToString(img.At(i, j))
-			newMap[colString]++
+			ColString := ColorToString(img.At(i, j))
+			newMap[ColString]++
 		}
 	}
 	return newMap
@@ -121,14 +121,14 @@ func MergeColorFrequencyMaps(masterMap map[string]int, maps []map[string]int) {
 
 func MostProminentColor(colFreqMap map[string]int) ColAndFreq {
 	max := ColAndFreq{
-		colString: "placeholder",
-		frequency: 0,
+		ColString: "placeholder",
+		Frequency: 0,
 	}
 
 	for key, el := range colFreqMap {
-		if el > max.frequency {
-			max.colString = key
-			max.frequency = el
+		if el > max.Frequency {
+			max.ColString = key
+			max.Frequency = el
 		}
 	}
 
@@ -141,7 +141,7 @@ func GetMostProminentColors(n int, colFreqMap map[string]int) []ColAndFreq {
 	for i := 0; i < n; i++ {
 		cur := MostProminentColor(colFreqMap)
 		ret[i] = cur
-		delete(colFreqMap, cur.colString)
+		delete(colFreqMap, cur.ColString)
 	}
 	return ret
 }
@@ -171,8 +171,8 @@ func SimplifyColFreqMap(
 		//fmt.Println("Outer loop.")
 		groupFound := false
 		newMember := ColAndFreq{
-			colString: k,
-			frequency: v,
+			ColString: k,
+			Frequency: v,
 		}
 		for rep, _ := range colorGroups {
 			//fmt.Println("Inner loop.")
@@ -194,7 +194,7 @@ func SimplifyColFreqMap(
 		}
 	}
 	fmt.Printf("Loops exited. %d color groups created.\n", len(colorGroups))
-	// merge color groups into a return color frequency map.
+	// merge color groups into a return color Frequency map.
 	return mergeColorGroups(colorGroups)
 }
 
@@ -204,7 +204,7 @@ func countEmptyStrings(colorGroups map[string][]ColAndFreq) {
 	emptyArrs := make(map[string][]ColAndFreq)
 	for k, v := range colorGroups {
 		for _, col := range v {
-			if col.colString == "" {
+			if col.ColString == "" {
 				count++
 				fmt.Println(col)
 				emptyArrs[k] = v
@@ -222,7 +222,7 @@ func mergeColorGroups(
 	merged := make(map[string]int)
 	for _, v := range colorGroups {
 		retVal := mergeColAndFreqArr(v)
-		merged[retVal.colString] = retVal.frequency
+		merged[retVal.ColString] = retVal.Frequency
 	}
 	return merged
 }
@@ -231,21 +231,21 @@ func mergeColorGroups(
 // frequencies of each element.
 func mergeColAndFreqArr(cols []ColAndFreq) ColAndFreq {
 	totalColors := float64(len(cols))
-	frequency := 0
+	Frequency := 0
 	r, g, b := 0.0, 0.0, 0.0
 	for _, col := range cols {
 		// for each element convert string into array and add to 
 		// color sums.
-		//fmt.Printf("\"%s\"\n", col.colString)
-		if col.colString == "" {
+		//fmt.Printf("\"%s\"\n", col.ColString)
+		if col.ColString == "" {
 			fmt.Println(col)
 		}
 		// 
-		colArr := ColStringToArr(col.colString)
+		colArr := ColStringToArr(col.ColString)
 		r += colArr[0]
 		g += colArr[1]
 		b += colArr[2]
-		frequency += col.frequency
+		Frequency += col.Frequency
 	}
 
 	r /= totalColors
@@ -253,11 +253,11 @@ func mergeColAndFreqArr(cols []ColAndFreq) ColAndFreq {
 	b /= totalColors
 	rS, gS, bS := strconv.Itoa(int(r)), strconv.Itoa(int(g)), strconv.Itoa(int(b))
 	tempStrArr := []string{rS, gS, bS, "255"}
-	colString := strings.Join(tempStrArr, ", ")
+	ColString := strings.Join(tempStrArr, ", ")
 
 	retColAndFreq := ColAndFreq{
-		colString,
-		frequency,
+		ColString,
+		Frequency,
 	}
 
 	return retColAndFreq
@@ -314,9 +314,42 @@ func Stub_1() {
 	GetMostProminentColors(n, SimplifyColFreqMap(tolerance, cfmCopy)))
 }
 
+func rgbaToHex(rgba string) string {
+	temp := strings.Split(rgba, " ")[:3]
+	lenTemp := len(temp)
+	r, g, b := temp[0][:lenTemp-1], temp[1][:lenTemp-1], temp[2][:lenTemp-1]
+	ri, _ := strconv.Atoi(r)
+	gi, _ := strconv.Atoi(g)
+	bi, _ := strconv.Atoi(b)
+
+	rh := strconv.FormatInt(int64(ri), 16)
+	if len(rh) == 1 {
+		rh = "0"+rh
+	}
+	gh := strconv.FormatInt(int64(gi), 16)
+	if len(gh) == 1 {
+		gh = "0"+gh
+	}
+	bh := strconv.FormatInt(int64(bi), 16)
+	if len(bh) == 1 {
+		bh = "0"+bh
+	}
+
+	ret := "#"+rh+gh+bh
+	return ret
+}
+
+// convert an array of ColAndFreq structs to have hex codes for strings.
+func rgbaToHexArr(arr []ColAndFreq) []ColAndFreq {
+	for i := range arr {
+		arr[i].ColString = rgbaToHex(arr[i].ColString)
+	}
+	return arr
+}
+
 func ExtractPalette(uploaded image.Image, colsToExtract int) []ColAndFreq {
 	tolerance := 20.0
 	colorFrequencyMap := CreateColorFrequencyMap(uploaded)
 	colorFrequencyMap = SimplifyColFreqMap(tolerance, colorFrequencyMap)
-	return GetMostProminentColors(colsToExtract, colorFrequencyMap)
+	return rgbaToHexArr(GetMostProminentColors(colsToExtract, colorFrequencyMap))
 }
