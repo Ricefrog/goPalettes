@@ -2,14 +2,9 @@ import React, { useState } from 'react';
 
 const API_URL = 'http://localhost:8080/api';
 
-const PaletteExtractForm = () => {
+const ExtractionBlock = () => {
 	const [numCols, setNumCols] = useState(3)
 	const [selectedFile, setSelectedFile] = useState(undefined)
-
-	const options = []
-	for (let i = 3; i < 11; i++) {
-		options.push(<option value={i} key={i}>{i}</option>)
-	}
 
 	const submitForm = () => {
 		console.log('Uploading extract form.');
@@ -37,26 +32,64 @@ const PaletteExtractForm = () => {
 	}
 
 	return (
-		<form onSubmit={submitForm}>
+		<div className="extraction-block">
+			<PaletteExtractForm 
+				onSubmit={submitForm} 
+				numCols={numCols}
+				setNumCols={setNumCols}
+				selectedFile={selectedFile}
+				setSelectedFile={setSelectedFile}
+			/>
+			<DisplayPalette 
+				numCols={numCols}
+			/>
+		</div>
+	);
+}
+
+const PaletteExtractForm = (props) => {
+
+	const options = [];
+	for (let i = 3; i < 11; i++) {
+		options.push(<option value={i} key={i}>{i}</option>);
+	}
+
+	return (
+		<form onSubmit={props.onSubmit}>
 			<div>Extract a palette from a file.</div>
 			<label htmlFor="extractNum">Colors to extract:</label>
 			<select 
 				id="extractNum"
-				value={numCols}
-				onChange={(e) => setNumCols(e.target.value)}
+				value={props.numCols}
+				onChange={(e) => props.setNumCols(e.target.value)}
 			>
 				{options}
 			</select>
 			<input 
 				type="file" 
 				name="image"
-				onChange={(e) => setSelectedFile(e.target.files[0])}
+				onChange={(e) => props.setSelectedFile(e.target.files[0])}
 			/>
 			<button>
 				Find palette!
 			</button>
 		</form>
-	)
+	);
 }
 
-export default PaletteExtractForm;
+const DisplayPalette = ({ numCols }) => {
+	const blocks = [];
+	for (let i = 0; i < numCols; i++) {
+		blocks.push(<div className="color-block" key={i}>color {i}</div>);
+	}
+
+	return (
+		<div className="display-palette">
+			{
+				blocks
+			}
+		</div>
+	);
+}
+
+export default ExtractionBlock;

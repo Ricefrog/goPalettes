@@ -1,10 +1,10 @@
 import React from 'react';
-import PaletteExtractForm from './components/PaletteExtractForm.js';
+import ExtractionBlock from './components/ExtractionBlock.js';
 
 const App = () => {
 	return (
 		<div>
-			<PaletteExtractForm />
+			<ExtractionBlock />
 		</div>
 	)
 }

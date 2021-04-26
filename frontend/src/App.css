@@ -1,0 +1,33 @@
+body {
+	min-height: 100vh;
+	margin: 0;
+	padding: 0;
+}
+
+.root {
+	height: 100%;
+}
+
+.extraction-block {
+	background-color: red;
+	margin: 3em;
+	padding: 3em;
+	display: flex;
+	border-radius: 25px;
+	height: 14em;
+}
+
+.display-palette {
+	background-color: grey;
+	width: 50%;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+}
+
+.color-block {
+	flex: 1;
+	background-color: lightblue;
+	border: solid black .2em;
+	padding: .5em;
+}
