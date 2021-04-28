@@ -6,6 +6,8 @@ import (
 	"log"
 	"image"
 	"fmt"
+	"strings"
+	"strconv"
 )
 
 var test image.Image
@@ -14,8 +16,45 @@ func main() {
 	//imageManip.Stub_1()
 	//diffs()
 	//testColStringToArr()
-	fmt.Println(test)
-	fmt.Println(test == nil)
+	//fmt.Println(test)
+	//fmt.Println(test == nil)
+	testingRgbaToHex()
+}
+
+func rgbaToHex(rgba string) string {
+	temp := strings.Split(rgba, " ")[:3]
+	fmt.Println("temp:", temp)
+	lt := []int{len(temp[0]), len(temp[1]), len(temp[2])}
+
+	r, g, b := temp[0][1:lt[0]-1], temp[1][:lt[1]-1], temp[2][:lt[2]-1]
+	fmt.Printf("r: %s, g: %s, b: %s\\", r, g, b)
+
+	ri, _ := strconv.Atoi(r)
+	gi, _ := strconv.Atoi(g)
+	bi, _ := strconv.Atoi(b)
+	fmt.Println("After Atoi:")
+	fmt.Printf("ri: %d, gi: %d, bi: %d\\", ri, gi, bi)
+
+	rh := strconv.FormatInt(int64(ri), 16)
+	if len(rh) == 1 {
+		rh = "0"+rh
+	}
+	gh := strconv.FormatInt(int64(gi), 16)
+	if len(gh) == 1 {
+		gh = "0"+gh
+	}
+	bh := strconv.FormatInt(int64(bi), 16)
+	if len(bh) == 1 {
+		bh = "0"+bh
+	}
+
+	ret := "#"+rh+gh+bh
+	return ret
+}
+
+func testingRgbaToHex() {
+	testString := "(198, 255, 255, 255)"
+	fmt.Println(rgbaToHex(testString))
 }
 
 func testColStringToArr() {

@@ -16,7 +16,6 @@ const ExtractionBlock = () => {
 
 		const options = {
 			method: 'POST',
-			mode: 'no-cors',
 			headers: {
 				'Content-Type': 'multipart/form-data',
 				'Accept': 'application/json',
@@ -27,12 +26,9 @@ const ExtractionBlock = () => {
 		fetch(API_URL+'/upload', options)
 		.then(response => {
 			console.log(response);
-			return response.json();
-		})
-		.then(result => {
-			console.log('Success:', result);
-			// TODO Check response header for 200, then change 
-			// fileUploaded variable.
+			if (response.status === 200) {
+				setFileUploaded(true);
+			}
 		})
 		.catch(error => {
 			console.log('Upload failed.');
@@ -46,6 +42,7 @@ const ExtractionBlock = () => {
 				onSubmit={uploadImage} 
 				selectedFile={selectedFile}
 				setSelectedFile={setSelectedFile}
+				fileUploaded={fileUploaded}
 			/>
 		</div>
 	);
@@ -81,7 +78,7 @@ const DisplayPalette = ({ display }) => {
 	}
 
 	const getPalette = () => {
-		const urlToUse = `${API_URL}/upload/?colors=${numCols}`;
+		const urlToUse = `${API_URL}/extract/?colors=${numCols}`;
 
 		const options = {
 			method: 'GET',

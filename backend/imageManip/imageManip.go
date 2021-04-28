@@ -316,8 +316,9 @@ func Stub_1() {
 
 func rgbaToHex(rgba string) string {
 	temp := strings.Split(rgba, " ")[:3]
-	lenTemp := len(temp)
-	r, g, b := temp[0][:lenTemp-1], temp[1][:lenTemp-1], temp[2][:lenTemp-1]
+	lt := []int{len(temp[0]), len(temp[1]), len(temp[2])}
+
+	r, g, b := temp[0][1:lt[0]-1], temp[1][:lt[1]-1], temp[2][:lt[2]-1]
 	ri, _ := strconv.Atoi(r)
 	gi, _ := strconv.Atoi(g)
 	bi, _ := strconv.Atoi(b)

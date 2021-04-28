@@ -18,7 +18,7 @@ var UPLOADED_IMAGE image.Image
 func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/upload", upload)
-	mux.HandleFunc("/api/extract", extract)
+	mux.HandleFunc("/api/extract/", extract)
 	//mux.HandleFunc("/", root)
 	//mux.HandleFunc("/api/extracted", extracted)
 	server := &http.Server{
@@ -27,6 +27,10 @@ func main() {
 	}
 	fmt.Println("Server started.")
 	server.ListenAndServe()
+}
+
+func enableCors(w *http.ResponseWriter) {
+	(*w).Header().Set("Access-Control-Allow-Origin", "*")
 }
 
 func root(w http.ResponseWriter, r *http.Request) {
@@ -56,6 +60,7 @@ func upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	enableCors(&w)
 	w.WriteHeader(200)
 	return
 }
@@ -91,6 +96,7 @@ func extract(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Println("Sending json:", string(ret))
+	enableCors(&w)
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(200)
 	w.Write(ret)
