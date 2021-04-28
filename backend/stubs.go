@@ -8,10 +8,14 @@ import (
 	"fmt"
 )
 
+var test image.Image
+
 func main() {
-	imageManip.Stub_1()
+	//imageManip.Stub_1()
 	//diffs()
 	//testColStringToArr()
+	fmt.Println(test)
+	fmt.Println(test == nil)
 }
 
 func testColStringToArr() {
