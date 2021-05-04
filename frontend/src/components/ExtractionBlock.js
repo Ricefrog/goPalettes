@@ -51,7 +51,10 @@ const ExtractionBlock = () => {
 const PaletteExtractForm = (props) => {
 	return (
 		<div>
-			<form onSubmit={(e) => props.onSubmit(e)}>
+			<form 
+				onSubmit={(e) => props.onSubmit(e)}
+				className="upload-form"
+			>
 				<div>Upload.</div>
 				<input 
 					type="file" 
@@ -72,6 +75,7 @@ const PaletteExtractForm = (props) => {
 const DisplayPalette = ({ display }) => {
 	const [numCols, setNumCols] = useState(3);
 	const [palette, setPalette] = useState([]);
+	const [loading, setLoading] = useState(false);
 
 	if (!display) {
 		return null;
@@ -84,15 +88,18 @@ const DisplayPalette = ({ display }) => {
 			method: 'GET',
 		};
 
+		setLoading(true);
 		fetch(urlToUse, options)
 			.then(response => response.json())
 			.then(result => {
 				console.log('Returned:', result);
 				setPalette(result);
+				setLoading(false);
 			})
 			.catch(error => {
 				console.log('Palette extraction failed.');
 				console.error('Error:', error);
+				setLoading(false);
 			});
 	}
 
@@ -104,18 +111,26 @@ const DisplayPalette = ({ display }) => {
 	const blocks = [];
 	for (let i = 0; i < palette.length; i++) {
 		blocks.push(
-			<div 
+			<div
 				className="color-block" 
-				style={{backgroundColor: palette[i].color}}
-				key={i}
 			>
-				{palette[i].color}: {palette[i].frequency}
+				<div 
+					className="color-itself"
+					style={{backgroundColor: palette[i].color}}
+					key={i}
+				>
+				</div>
+				<div
+					className="color-info"
+				>
+					{palette[i].color}: {palette[i].frequency}
+				</div>
 			</div>
 	);
 	}
 
 	return (
-		<div>
+		<div className="find-palette">
 			<div>
 				<label htmlFor="extractNum">Colors to extract:</label>
 				<select 
@@ -129,11 +144,14 @@ const DisplayPalette = ({ display }) => {
 					Find palette!
 				</button>
 			</div>
-			<div className="display-palette">
-				{
-					blocks
-				}
-			</div>
+			{loading 
+				? <div>Loading...</div>
+				: <div className="display-palette">
+						{
+							blocks
+						}
+					</div>
+			}
 		</div>
 	);
 }

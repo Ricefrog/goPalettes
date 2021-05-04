@@ -1,7 +1,9 @@
+html {
+	height: 100%;
+}
+
 body {
-	min-height: 100vh;
-	margin: 0;
-	padding: 0;
+	height: 100%;
 }
 
 .root {
@@ -9,12 +11,22 @@ body {
 }
 
 .extraction-block {
-	background-color: red;
-	margin: 3em;
+	background-color: #d49c6b;
+	margin: auto;
 	padding: 3em;
 	display: flex;
 	border-radius: 25px;
-	height: 14em;
+	height: 100%;
+}
+
+.upload-form {
+	background-color: #f6fafb;
+	padding: 1em;
+}
+
+.find-palette {
+	background-color: #c1c8c7;
+	padding: 1em;
 }
 
 .display-palette {
@@ -27,6 +39,21 @@ body {
 
 .color-block {
 	flex: 1;
+	display: flex;
 	border: solid black .2em;
 	padding: .5em;
+}
+
+.color-itself {
+	flex: 1;
+	border-radius: 25px;
+	margin-right: .5em;
+}
+
+.color-info {
+	flex: 1;
+	padding: 1em;
+	border-radius: 25px;
+	color: #252b31;
+	background-color: #c1c8c7;
 }
