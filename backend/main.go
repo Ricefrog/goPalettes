@@ -85,7 +85,8 @@ func extract(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	colors := imageManip.ExtractPalette(UPLOADED_IMAGE, numOfColors)
+	//colors := imageManip.ExtractPalette(UPLOADED_IMAGE, numOfColors)
+	colors := imageManip.ExtractPaletteConcurrent(UPLOADED_IMAGE, numOfColors)
 	fmt.Println("Colors:", colors)
 
 	ret, err := json.Marshal(colors)

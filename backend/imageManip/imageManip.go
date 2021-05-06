@@ -198,6 +198,111 @@ func SimplifyColFreqMap(
 	return mergeColorGroups(colorGroups)
 }
 
+// create groups of similar colors according to some distance tolerance value
+func SimplifyColFreqMapConcurrent(
+	tolerance float64,
+	colFreqMap map[string]int,
+) map[string]int {
+	fmt.Println("SimplifyColMapConcurrent was called.")
+
+	// Split map into sections to be handled concurrently
+	numberOfSections := 4
+	subMaps := splitColFreqMap(numberOfSections, colFreqMap)
+	// each element in colorGroupsArray holds the corresponding colorGroups
+	// for each submap.
+	colorGroupsArray := make([]map[string][]ColAndFreq, numberOfSections)
+	for i:= 0; i < numberOfSections; i++ {
+		colorGroupsArray[i] = make(map[string][]ColAndFreq)
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(numberOfSections)
+	for i, subMap := range subMaps {
+		go getColorGroups(tolerance, subMap, colorGroupsArray, i, &wg)
+	}
+	wg.Wait()
+
+	// Now merge colorGroupsArray into a single color group.
+	colorGroups := make(map[string][]ColAndFreq)
+	for _, subGroup := range colorGroupsArray {
+		for k, v := range subGroup {
+			colorGroups[k] = v
+		}
+	}
+
+	fmt.Printf(
+		"subMaps merged. %d unique color groups created.\n",
+		len(colorGroups),
+	)
+
+	// merge color groups into a return color Frequency map.
+	return mergeColorGroups(colorGroups)
+}
+
+// Split colFreqMap into an array of submaps. Flensed.
+func splitColFreqMap(sections int, colFreqMap map[string]int) []map[string]int {
+	ret := make([]map[string]int, sections)
+	currentSection := 0
+	counter := 1
+	subSectionLength := len(colFreqMap) / sections
+
+	// intialize maps
+	for i := 0; i < sections; i++ {
+		ret[i] = make(map[string]int)
+	}
+
+	for k, v := range colFreqMap {
+		if currentSection < sections - 1 && counter > subSectionLength {
+			currentSection++
+			counter = 1
+		}
+		ret[currentSection][k] = v
+		counter++
+	}
+	return ret
+}
+
+func getColorGroups(
+	tolerance float64,
+	colFreqMap map[string]int,
+	colorGroupsArray []map[string][]ColAndFreq,
+	index int,
+	wg *sync.WaitGroup,
+) {
+	defer wg.Done()
+	// the keys of the map act as representatives of the color group
+	colorGroups := colorGroupsArray[index]
+
+	for k, v := range colFreqMap {
+		//fmt.Println("Outer loop.")
+		groupFound := false
+		newMember := ColAndFreq{
+			ColString: k,
+			Frequency: v,
+		}
+		for rep, _ := range colorGroups {
+			// if a color fits into a color group add it to the array.
+			if distance(ColStringToArr(rep), ColStringToArr(k)) < tolerance {
+				colorGroups[rep] = append(colorGroups[rep], newMember)
+				groupFound = true
+				break
+			}
+		}
+		// if the color couldn't find a group to fit into, create
+		// a new color group with that color as the rep
+		if !groupFound {
+			//fmt.Println("outer if entered.")
+			colorGroups[k] = []ColAndFreq{newMember}
+		}
+	}
+
+	fmt.Printf(
+		"%d color groups created for subMap %d.\n",
+		len(colorGroups),
+		index,
+	)
+}
+
 // used this for debugging
 func countEmptyStrings(colorGroups map[string][]ColAndFreq) {
 	count := 0
@@ -352,5 +457,14 @@ func ExtractPalette(uploaded image.Image, colsToExtract int) []ColAndFreq {
 	tolerance := 20.0
 	colorFrequencyMap := CreateColorFrequencyMap(uploaded)
 	colorFrequencyMap = SimplifyColFreqMap(tolerance, colorFrequencyMap)
+	return rgbaToHexArr(GetMostProminentColors(colsToExtract, colorFrequencyMap))
+}
+func ExtractPaletteConcurrent(
+	uploaded image.Image,
+	colsToExtract int,
+) []ColAndFreq {
+	tolerance := 20.0
+	colorFrequencyMap := CreateColorFrequencyMap(uploaded)
+	colorFrequencyMap = SimplifyColFreqMapConcurrent(tolerance, colorFrequencyMap)
 	return rgbaToHexArr(GetMostProminentColors(colsToExtract, colorFrequencyMap))
 }

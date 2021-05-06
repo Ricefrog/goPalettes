@@ -18,8 +18,47 @@ func main() {
 	//testColStringToArr()
 	//fmt.Println(test)
 	//fmt.Println(test == nil)
-	testingRgbaToHex()
+	//testingRgbaToHex()
+	//splittingColFreqMapTesting()
+	/*
+	testMap := make(map[string]int)
+	mapTest(testMap)
+	fmt.Println(testMap)
+	*/
+	testArrMap := make([]map[string]int, 5)
+	for i := 0; i < 5; i++ {
+		testArrMap[i] = make(map[string]int)
+	}
+	mapArrTest(testArrMap)
+	fmt.Println(testArrMap)
 }
+
+func mapArrTest(m []map[string]int) {
+	for i, m := range m {
+		m["testing"] = i
+	}
+}
+
+func mapTest(m map[string]int) {
+	foo := "testing"
+	m[foo] = 15
+}
+
+/*
+func splittingColFreqMapTesting() {
+	testColFreqMap := make(map[string]int)
+	sections := 4
+
+	for i := 0; i < 10; i++ {
+		testColFreqMap[string(i+65)] = i
+	}
+
+	retArr := imageManip.SplitColFreqMap(sections, testColFreqMap)
+	for _, m := range retArr {
+		fmt.Printf("\n%v\n", m)
+	}
+}
+*/
 
 func rgbaToHex(rgba string) string {
 	temp := strings.Split(rgba, " ")[:3]
