@@ -29,6 +29,10 @@ body {
 	padding: 1em;
 }
 
+.find-palette button {
+	margin-left: 1em;
+}
+
 .display-palette {
 	background-color: grey;
 	width: 50%;

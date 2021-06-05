@@ -208,10 +208,17 @@ func SimplifyColFreqMapConcurrent(
 	// Split map into sections to be handled concurrently
 	numberOfSections := 4
 	subMaps := splitColFreqMap(numberOfSections, colFreqMap)
+
+	// Comparing the size of the submaps to the main colFreqMap
+	fmt.Printf("\nLength of colFreqMap: %d\n", len(colFreqMap))
+	for i, s := range(subMaps) {
+		fmt.Printf("Length of subMap #%d: %d\n", i, len(s))
+	}
+
 	// each element in colorGroupsArray holds the corresponding colorGroups
 	// for each submap.
 	colorGroupsArray := make([]map[string][]ColAndFreq, numberOfSections)
-	for i:= 0; i < numberOfSections; i++ {
+	for i := 0; i < numberOfSections; i++ {
 		colorGroupsArray[i] = make(map[string][]ColAndFreq)
 	}
 
@@ -459,6 +466,7 @@ func ExtractPalette(uploaded image.Image, colsToExtract int) []ColAndFreq {
 	colorFrequencyMap = SimplifyColFreqMap(tolerance, colorFrequencyMap)
 	return rgbaToHexArr(GetMostProminentColors(colsToExtract, colorFrequencyMap))
 }
+
 func ExtractPaletteConcurrent(
 	uploaded image.Image,
 	colsToExtract int,

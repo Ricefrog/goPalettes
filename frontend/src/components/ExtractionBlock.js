@@ -76,13 +76,15 @@ const DisplayPalette = ({ display }) => {
 	const [numCols, setNumCols] = useState(3);
 	const [palette, setPalette] = useState([]);
 	const [loading, setLoading] = useState(false);
+	const [concurrent, setConcurrent] = useState(true);
 
 	if (!display) {
 		return null;
 	}
 
 	const getPalette = () => {
-		const urlToUse = `${API_URL}/extract/?colors=${numCols}`;
+		const urlToUse = 
+		`${API_URL}/extract/?colors=${numCols}&concurrent=${concurrent}`;
 
 		const options = {
 			method: 'GET',
@@ -140,6 +142,17 @@ const DisplayPalette = ({ display }) => {
 				>
 					{options}
 				</select>
+				<input 
+					type="radio" id="concurrent" name="concurrent" 
+					onClick={() => setConcurrent(true)}
+					checked
+				/>
+				<label for="concurrent">Concurrent</label>
+				<input 
+					type="radio" id="sequential" name="concurrent" 
+					onClick={() => setConcurrent(false)}
+				/>
+				<label for="sequential">Sequential</label>
 				<button onClick={getPalette}>
 					Find palette!
 				</button>

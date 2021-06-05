@@ -65,7 +65,8 @@ func upload(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-// GET, include number of colors to extract in the url as a query parameter with the number of colors to extract.
+// GET, include number of colors to extract in the url as a query parameter
+// with the number of colors to extract.
 func extract(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("\nRequest sent to extract.", r.Method)
 	if UPLOADED_IMAGE == nil {
