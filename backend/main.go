@@ -9,7 +9,10 @@ import (
 	"strconv"
 	"image"
 	_ "image/png"
-	_ "image/jpeg"
+	"image/jpeg"
+	"time"
+	"bytes"
+	"encoding/base64"
 )
 
 var UPLOADED_IMAGE image.Image
@@ -60,8 +63,25 @@ func upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	buf := new(bytes.Buffer)
+	jpeg.Encode(buf, UPLOADED_IMAGE, nil)
+	base64 := base64.StdEncoding.EncodeToString(buf.Bytes())
+	base64 = "data:image/jpeg;base64," + base64
+
+	ret, err := json.Marshal(map[string]string {
+		"base64_image": base64,
+	})
+	if err != nil {
+		fmt.Println("Error marshalling json.")
+		fmt.Println(err)
+		return
+	}
+
+	//fmt.Println("Sending json:", string(ret))
 	enableCors(&w)
+	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(200)
+	w.Write(ret)
 	return
 }
 
@@ -86,9 +106,43 @@ func extract(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//colors := imageManip.ExtractPalette(UPLOADED_IMAGE, numOfColors)
-	colors := imageManip.ExtractPaletteConcurrent(UPLOADED_IMAGE, numOfColors)
+	keys, ok = r.URL.Query()["concurrent"]
+	if !ok {
+		fmt.Println("URL param \"concurrent\" is missing. ")
+		return
+	}
+
+	useConcurrent := keys[0]
+	fmt.Printf("Concurrent mode: %v\n", useConcurrent)
+
+	start := time.Now()
+	var colors []imageManip.ColAndFreq
+	if useConcurrent == "true" {
+
+		keys, ok = r.URL.Query()["goroutines"]
+		if !ok {
+			fmt.Println("URL param \"goroutines\" is missing. ")
+			return
+		}
+
+		numberOfGoroutines, err := strconv.Atoi(keys[0])
+		if err != nil {
+			fmt.Println("Invalid number of goroutines.")
+			return
+		}
+		fmt.Printf("Using %d goroutines.\n", numberOfGoroutines)
+
+		colors = imageManip.ExtractPaletteConcurrent(
+			UPLOADED_IMAGE,
+			numOfColors,
+			numberOfGoroutines,
+		)
+	} else {
+		colors = imageManip.ExtractPalette(UPLOADED_IMAGE, numOfColors)
+	}
+
 	fmt.Println("Colors:", colors)
+	fmt.Printf("Took %v.\n", time.Since(start))
 
 	ret, err := json.Marshal(colors)
 	if err != nil {

@@ -5,6 +5,7 @@ const API_URL = 'http://localhost:8080/api';
 const ExtractionBlock = () => {
 	const [selectedFile, setSelectedFile] = useState(undefined);
 	const [fileUploaded, setFileUploaded] = useState(false);
+	const [base64_image, setBase64_image] = useState("");
 
 	const uploadImage = (e) => {
 		e.preventDefault();
@@ -29,6 +30,11 @@ const ExtractionBlock = () => {
 			if (response.status === 200) {
 				setFileUploaded(true);
 			}
+			return response.json();
+		})
+		.then(result => {
+			console.log("Returned:", result);
+			setBase64_image(result.base64_image);
 		})
 		.catch(error => {
 			console.log('Upload failed.');
@@ -38,6 +44,14 @@ const ExtractionBlock = () => {
 
 	return (
 		<div className="extraction-block">
+			{
+				(base64_image === "")
+					? <></>
+					: <img
+							src={base64_image}
+							alt="Nothing to show"
+						/>
+			}
 			<PaletteExtractForm 
 				onSubmit={uploadImage} 
 				selectedFile={selectedFile}
@@ -74,9 +88,10 @@ const PaletteExtractForm = (props) => {
 
 const DisplayPalette = ({ display }) => {
 	const [numCols, setNumCols] = useState(3);
+	const [numGo, setNumGo] = useState(4);
 	const [palette, setPalette] = useState([]);
 	const [loading, setLoading] = useState(false);
-	const [concurrent, setConcurrent] = useState(true);
+	const [concurrent, setConcurrent] = useState(false);
 
 	if (!display) {
 		return null;
@@ -84,7 +99,8 @@ const DisplayPalette = ({ display }) => {
 
 	const getPalette = () => {
 		const urlToUse = 
-		`${API_URL}/extract/?colors=${numCols}&concurrent=${concurrent}`;
+		`${API_URL}/extract/?colors=${numCols}&concurrent=${concurrent}`
+		+ `&goroutines=${numGo}`;
 
 		const options = {
 			method: 'GET',
@@ -128,7 +144,7 @@ const DisplayPalette = ({ display }) => {
 					{palette[i].color}: {palette[i].frequency}
 				</div>
 			</div>
-	);
+		);
 	}
 
 	return (
@@ -145,18 +161,33 @@ const DisplayPalette = ({ display }) => {
 				<input 
 					type="radio" id="concurrent" name="concurrent" 
 					onClick={() => setConcurrent(true)}
-					checked
 				/>
 				<label for="concurrent">Concurrent</label>
 				<input 
 					type="radio" id="sequential" name="concurrent" 
 					onClick={() => setConcurrent(false)}
+					defaultChecked={!concurrent}
 				/>
 				<label for="sequential">Sequential</label>
 				<button onClick={getPalette}>
 					Find palette!
 				</button>
 			</div>
+			{
+				concurrent 
+					? <div>
+							<label htmlFor="goroutines">goroutines to use (4 - 100):</label>
+							<input
+								id="goroutines"
+								type="number"
+								min="4"
+								max="100"
+								value={numGo}
+								onChange={(e) => setNumGo(e.target.value)}
+							/>
+						</div>
+					: <></>
+			}
 			{loading 
 				? <div>Loading...</div>
 				: <div className="display-palette">

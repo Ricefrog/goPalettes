@@ -202,11 +202,12 @@ func SimplifyColFreqMap(
 func SimplifyColFreqMapConcurrent(
 	tolerance float64,
 	colFreqMap map[string]int,
+	numberOfGoroutines int,
 ) map[string]int {
 	fmt.Println("SimplifyColMapConcurrent was called.")
 
 	// Split map into sections to be handled concurrently
-	numberOfSections := 4
+	numberOfSections := numberOfGoroutines
 	subMaps := splitColFreqMap(numberOfSections, colFreqMap)
 
 	// Comparing the size of the submaps to the main colFreqMap
@@ -222,6 +223,7 @@ func SimplifyColFreqMapConcurrent(
 		colorGroupsArray[i] = make(map[string][]ColAndFreq)
 	}
 
+	// getColorGroups is the performance bottleneck.
 	var wg sync.WaitGroup
 	wg.Add(numberOfSections)
 	for i, subMap := range subMaps {
@@ -230,6 +232,7 @@ func SimplifyColFreqMapConcurrent(
 	wg.Wait()
 
 	// Now merge colorGroupsArray into a single color group.
+	// Maybe: Use tolerance value to let similar groups swallow each other.
 	colorGroups := make(map[string][]ColAndFreq)
 	for _, subGroup := range colorGroupsArray {
 		for k, v := range subGroup {
@@ -238,7 +241,7 @@ func SimplifyColFreqMapConcurrent(
 	}
 
 	fmt.Printf(
-		"subMaps merged. %d unique color groups created.\n",
+		"subMaps merged. %d color groups created.\n",
 		len(colorGroups),
 	)
 
@@ -470,9 +473,14 @@ func ExtractPalette(uploaded image.Image, colsToExtract int) []ColAndFreq {
 func ExtractPaletteConcurrent(
 	uploaded image.Image,
 	colsToExtract int,
+	numberOfGoroutines int,
 ) []ColAndFreq {
 	tolerance := 20.0
 	colorFrequencyMap := CreateColorFrequencyMap(uploaded)
-	colorFrequencyMap = SimplifyColFreqMapConcurrent(tolerance, colorFrequencyMap)
+	colorFrequencyMap = SimplifyColFreqMapConcurrent(
+		tolerance,
+		colorFrequencyMap,
+		numberOfGoroutines,
+	)
 	return rgbaToHexArr(GetMostProminentColors(colsToExtract, colorFrequencyMap))
 }
