@@ -95,17 +95,29 @@ func extract(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// get number of colors from query param
 	keys, ok := r.URL.Query()["colors"]
 	if !ok || len(keys[0]) < 1{
 		fmt.Println("URL param \"colors\" is missing. ")
 	}
-
 	numOfColors, err := strconv.Atoi(keys[0])
 	if err != nil {
 		fmt.Println("Invalid number of colors.")
 		return
 	}
 
+	// get tolerance value from query param
+	keys, ok = r.URL.Query()["tolerance"]
+	if !ok {
+		fmt.Println("URL param \"tolerance\" is missing. ")
+	}
+	tolerance, err := strconv.Atoi(keys[0])
+	if err != nil {
+		fmt.Println("Invalid tolerance.")
+		return
+	}
+
+	// get concurrent/sequential from query param
 	keys, ok = r.URL.Query()["concurrent"]
 	if !ok {
 		fmt.Println("URL param \"concurrent\" is missing. ")
@@ -119,12 +131,12 @@ func extract(w http.ResponseWriter, r *http.Request) {
 	var colors []imageManip.ColAndFreq
 	if useConcurrent == "true" {
 
+		// get number of goroutines to use from query param
 		keys, ok = r.URL.Query()["goroutines"]
 		if !ok {
 			fmt.Println("URL param \"goroutines\" is missing. ")
 			return
 		}
-
 		numberOfGoroutines, err := strconv.Atoi(keys[0])
 		if err != nil {
 			fmt.Println("Invalid number of goroutines.")
@@ -136,9 +148,14 @@ func extract(w http.ResponseWriter, r *http.Request) {
 			UPLOADED_IMAGE,
 			numOfColors,
 			numberOfGoroutines,
+			float64(tolerance),
 		)
 	} else {
-		colors = imageManip.ExtractPalette(UPLOADED_IMAGE, numOfColors)
+		colors = imageManip.ExtractPalette(
+			UPLOADED_IMAGE,
+			numOfColors,
+			float64(tolerance),
+		)
 	}
 
 	fmt.Println("Colors:", colors)

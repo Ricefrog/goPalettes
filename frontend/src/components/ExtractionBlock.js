@@ -44,20 +44,26 @@ const ExtractionBlock = () => {
 
 	return (
 		<div className="extraction-block">
-			{
-				(base64_image === "")
-					? <></>
-					: <img
-							src={base64_image}
-							alt="Nothing to show"
-						/>
-			}
 			<PaletteExtractForm 
 				onSubmit={uploadImage} 
 				selectedFile={selectedFile}
 				setSelectedFile={setSelectedFile}
 				fileUploaded={fileUploaded}
 			/>
+			{
+				(base64_image === "")
+					? <></>
+					: <div
+							className="uploaded-image"
+						>
+							<img
+								src={base64_image}
+								alt="Nothing to show"
+								height="100%"
+								width="100%"
+							/>
+						</div>
+			}
 		</div>
 	);
 }
@@ -89,6 +95,7 @@ const PaletteExtractForm = (props) => {
 const DisplayPalette = ({ display }) => {
 	const [numCols, setNumCols] = useState(3);
 	const [numGo, setNumGo] = useState(4);
+	const [tolerance, setTolerance] = useState(15);
 	const [palette, setPalette] = useState([]);
 	const [loading, setLoading] = useState(false);
 	const [concurrent, setConcurrent] = useState(false);
@@ -100,11 +107,12 @@ const DisplayPalette = ({ display }) => {
 	const getPalette = () => {
 		const urlToUse = 
 		`${API_URL}/extract/?colors=${numCols}&concurrent=${concurrent}`
-		+ `&goroutines=${numGo}`;
+		+ `&goroutines=${numGo}&tolerance=${tolerance}`;
 
 		const options = {
 			method: 'GET',
 		};
+		console.log(`Sending this url: ${urlToUse}`);
 
 		setLoading(true);
 		fetch(urlToUse, options)
@@ -172,6 +180,17 @@ const DisplayPalette = ({ display }) => {
 				<button onClick={getPalette}>
 					Find palette!
 				</button>
+			</div>
+			<div>
+				<label htmlFor="tolerance">Color tolerance:</label>
+				<input
+					id="tolerance"
+					type="number"
+					min="15"
+					max="440"
+					value={tolerance}
+					onChange={(e) => setTolerance(e.target.value)}
+				/>
 			</div>
 			{
 				concurrent 

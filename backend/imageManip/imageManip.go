@@ -8,7 +8,6 @@ import (
 	"image/color"
 	"os"
 	"errors"
-	"log"
 	"sync"
 	"strconv"
 	"strings"
@@ -386,49 +385,6 @@ func sq(a float64) float64 {
 	return a * a
 }
 
-func Stub_1() {
-	s, e, err := ParseArgs()
-	startPath := IMAGE_PATH+s
-	endPath := IMAGE_PATH+e
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	fmt.Printf("startPath: %s, endPath: %s\n", startPath, endPath)
-
-	originalFile, err := os.Open(startPath)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer originalFile.Close()
-
-	originalData, _, err := image.Decode(originalFile)
-	if err != nil {
-		log.Fatal(err)
-	}
-	colorFrequencyMap := CreateColorFrequencyMap(originalData)
-	//fmt.Println(colorFrequencyMap)
-	// colorFrequency map does not have "" as a key.
-	fmt.Printf("%d unique colors found.\n", len(colorFrequencyMap))
-
-	cfmCopy := make(map[string]int)
-	for k, v := range colorFrequencyMap {
-		cfmCopy[k] = v
-	}
-	// cfmCopy does not have "" as a key
-
-	fmt.Printf("Most prominent color: %v\n",
-		MostProminentColor(cfmCopy))
-
-	n := 5
-	fmt.Printf("%d most prominent colors: %v\n", n,
-	GetMostProminentColors(n, colorFrequencyMap))
-
-	tolerance := 20.0
-	fmt.Printf("%d most prominent colors (merged): %v\n", n,
-	GetMostProminentColors(n, SimplifyColFreqMap(tolerance, cfmCopy)))
-}
-
 func rgbaToHex(rgba string) string {
 	temp := strings.Split(rgba, " ")[:3]
 	lt := []int{len(temp[0]), len(temp[1]), len(temp[2])}
@@ -463,8 +419,11 @@ func rgbaToHexArr(arr []ColAndFreq) []ColAndFreq {
 	return arr
 }
 
-func ExtractPalette(uploaded image.Image, colsToExtract int) []ColAndFreq {
-	tolerance := 20.0
+func ExtractPalette(
+	uploaded image.Image,
+	colsToExtract int,
+	tolerance float64,
+) []ColAndFreq {
 	colorFrequencyMap := CreateColorFrequencyMap(uploaded)
 	colorFrequencyMap = SimplifyColFreqMap(tolerance, colorFrequencyMap)
 	return rgbaToHexArr(GetMostProminentColors(colsToExtract, colorFrequencyMap))
@@ -474,8 +433,8 @@ func ExtractPaletteConcurrent(
 	uploaded image.Image,
 	colsToExtract int,
 	numberOfGoroutines int,
+	tolerance float64,
 ) []ColAndFreq {
-	tolerance := 20.0
 	colorFrequencyMap := CreateColorFrequencyMap(uploaded)
 	colorFrequencyMap = SimplifyColFreqMapConcurrent(
 		tolerance,

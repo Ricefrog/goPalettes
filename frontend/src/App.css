@@ -19,6 +19,14 @@ body {
 	height: 100%;
 }
 
+.uploaded-image {
+	width: 40%;
+	border: solid black 4px;	
+	display: block;
+	margin: 5em;
+	padding: 0.5em;
+}
+
 .upload-form {
 	background-color: #f6fafb;
 	padding: 1em;
@@ -61,3 +69,4 @@ body {
 	color: #252b31;
 	background-color: #c1c8c7;
 }
+
