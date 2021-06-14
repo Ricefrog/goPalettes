@@ -1,0 +1,10 @@
+Issue: Every subMap is creating a similar number of color
+groups. I would expect the color groups to be more random.
+
+To begin figuring out what is wrong, I will write the colors
+in each subMap onto separate files. I will then compare the
+files and make sure that nothing is being duplicated. 
+
+Does it make sense for there to be duplicates? -> No.
+The frequency map is populated in such a way that
+duplicate colors are combined into a single key.

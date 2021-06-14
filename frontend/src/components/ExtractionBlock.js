@@ -130,7 +130,7 @@ const DisplayPalette = ({ display }) => {
 	}
 
 	const options = [];
-	for (let i = 3; i < 11; i++) {
+	for (let i = 3; i < 101; i++) {
 		options.push(<option value={i} key={i}>{i}</option>);
 	}
 

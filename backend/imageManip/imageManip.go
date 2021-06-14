@@ -118,7 +118,7 @@ func MergeColorFrequencyMaps(masterMap map[string]int, maps []map[string]int) {
 	}
 }
 
-func MostProminentColor(colFreqMap map[string]int) ColAndFreq {
+func mostProminentColor(colFreqMap map[string]int) ColAndFreq {
 	max := ColAndFreq{
 		ColString: "placeholder",
 		Frequency: 0,
@@ -138,9 +138,83 @@ func MostProminentColor(colFreqMap map[string]int) ColAndFreq {
 func GetMostProminentColors(n int, colFreqMap map[string]int) []ColAndFreq {
 	ret := make([]ColAndFreq, n)
 	for i := 0; i < n; i++ {
-		cur := MostProminentColor(colFreqMap)
+		cur := mostProminentColor(colFreqMap)
 		ret[i] = cur
 		delete(colFreqMap, cur.ColString)
+	}
+	return ret
+}
+
+// Takes an array of ColAndFreq and creates a composite color using
+// a weighted average. Returns a ColAndFreq struct with this composite
+// color and the sum of all frequencies in the array.
+func getCompositeColor(colors []ColAndFreq) ColAndFreq {
+	Frequency := 0
+	r, g, b := 0.0, 0.0, 0.0
+	for _, col := range colors {
+		// for each element convert string into array and add to 
+		// color sums.
+		colArr := ColStringToArr(col.ColString)
+		r += colArr[0]*float64(col.Frequency)
+		g += colArr[1]*float64(col.Frequency)
+		b += colArr[2]*float64(col.Frequency)
+		Frequency += col.Frequency
+	}
+
+	r /= float64(Frequency)
+	g /= float64(Frequency)
+	b /= float64(Frequency)
+	rS, gS, bS := strconv.Itoa(int(r)), strconv.Itoa(int(g)), strconv.Itoa(int(b))
+	tempStrArr := []string{rS, gS, bS, "255"}
+	ColString := strings.Join(tempStrArr, ", ")
+
+	composite := ColAndFreq{
+		ColString,
+		Frequency,
+	}
+
+	return composite
+}
+
+// Gets the most prominent color.
+// Makes an array of all the colors in the map that are within the
+// tolerance value. Deletes these similar colors from colFreqMap.
+// Combines the colors in the array into one. Uses weighted average.
+// Returns this new composite color.
+// At the end of the function colFreqMap has lost its most prominent color 
+// and all colors similar to it.
+func mostProminentColorImproved(colFreqMap map[string]int, tolerance float64) ColAndFreq {
+	mostProminent := mostProminentColor(colFreqMap)
+	mPCol := mostProminent.ColString
+	delete(colFreqMap, mostProminent.ColString)
+
+	similarColors := []ColAndFreq{mostProminent}
+
+	for k, v := range(colFreqMap) {
+		if distance(ColStringToArr(mPCol), ColStringToArr(k)) < tolerance {
+			similarColor := ColAndFreq{
+				ColString: k,
+				Frequency: v,
+			}
+			similarColors = append(similarColors, similarColor)
+			delete(colFreqMap, k)
+		}
+	}
+	return getCompositeColor(similarColors)
+}
+
+// Takes a colFreqMap and applies a tolerance value to get the specified
+// number of 'most prominent colors'. Each of these prominent colors is 
+// a weighted average of all the colors similar to it. 
+func getMostProminentColorsImproved(
+	numberOfColors int,
+	colFreqMap map[string]int,
+	tolerance float64,
+) []ColAndFreq {
+	ret := make([]ColAndFreq, numberOfColors)
+	for i := 0; i < numberOfColors; i++ {
+		cur := mostProminentColorImproved(colFreqMap, tolerance)
+		ret[i] = cur
 	}
 	return ret
 }
@@ -197,6 +271,17 @@ func SimplifyColFreqMap(
 	return mergeColorGroups(colorGroups)
 }
 
+// This removes all elements in colFreqMap that are below the
+// frequency threshold.
+func flenseColFreqMap(colFreqMap map[string]int) {
+	threshold := 100
+	for key, val := range(colFreqMap) {
+		if val < threshold {
+			delete(colFreqMap, key)
+		}
+	}
+}
+
 // create groups of similar colors according to some distance tolerance value
 func SimplifyColFreqMapConcurrent(
 	tolerance float64,
@@ -205,18 +290,24 @@ func SimplifyColFreqMapConcurrent(
 ) map[string]int {
 	fmt.Println("SimplifyColMapConcurrent was called.")
 
-	// Split map into sections to be handled concurrently
+	fmt.Printf("\nLength of colFreqMap before flensing: %d\n", len(colFreqMap))
+	flenseColFreqMap(colFreqMap)
+	fmt.Printf("\nLength of colFreqMap after flensing: %d\n", len(colFreqMap))
+
+	// Split map into sections to be handled concurrently.
+	// Each subMap maps a color value to its frequency in the image.
 	numberOfSections := numberOfGoroutines
 	subMaps := splitColFreqMap(numberOfSections, colFreqMap)
 
-	// Comparing the size of the submaps to the main colFreqMap
-	fmt.Printf("\nLength of colFreqMap: %d\n", len(colFreqMap))
+	// Comparing the size of the submaps to the main colFreqMap.
 	for i, s := range(subMaps) {
-		fmt.Printf("Length of subMap #%d: %d\n", i, len(s))
+		fmt.Printf("Length of subMap %d: %d\n", i, len(s))
 	}
 
+	debugSubMaps(subMaps)
+
 	// each element in colorGroupsArray holds the corresponding colorGroups
-	// for each submap.
+	// for each subMap.
 	colorGroupsArray := make([]map[string][]ColAndFreq, numberOfSections)
 	for i := 0; i < numberOfSections; i++ {
 		colorGroupsArray[i] = make(map[string][]ColAndFreq)
@@ -244,8 +335,15 @@ func SimplifyColFreqMapConcurrent(
 		len(colorGroups),
 	)
 
-	// merge color groups into a return color Frequency map.
-	return mergeColorGroups(colorGroups)
+	// merge color groups into a return color Frequency map. (map[string]int).
+	retMap := mergeColorGroups(colorGroups)
+
+	fmt.Printf(
+		"Color groups merged. %d colors in return map.\n",
+		len(retMap),
+	)
+
+	return retMap
 }
 
 // Split colFreqMap into an array of submaps. Flensed.
@@ -279,7 +377,9 @@ func getColorGroups(
 	wg *sync.WaitGroup,
 ) {
 	defer wg.Done()
-	// the keys of the map act as representatives of the color group
+
+	// the keys of the colorGroups map act as representatives of the color group
+	// The values of the keys of colorGroups are arrays of ColAndFreq structs.
 	colorGroups := colorGroupsArray[index]
 
 	for k, v := range colFreqMap {
@@ -289,6 +389,8 @@ func getColorGroups(
 			ColString: k,
 			Frequency: v,
 		}
+		// Observation: The higher the tolerance, the faster the program runs.
+		// Why is this? I do not know.
 		for rep, _ := range colorGroups {
 			// if a color fits into a color group add it to the array.
 			if distance(ColStringToArr(rep), ColStringToArr(k)) < tolerance {
@@ -377,6 +479,7 @@ func mergeColAndFreqArr(cols []ColAndFreq) ColAndFreq {
 	return retColAndFreq
 }
 
+
 func distance(p1 [3]float64, p2 [3]float64) float64 {
 	return math.Sqrt(sq(p1[0]-p2[0]) + sq(p1[1]-p2[1]) + sq(p1[2]-p2[2]))
 }
@@ -419,6 +522,63 @@ func rgbaToHexArr(arr []ColAndFreq) []ColAndFreq {
 	return arr
 }
 
+func removeContents(dir string) error {
+	d, err := os.Open(dir)
+	if err != nil {
+		return err
+	}
+	defer d.Close()
+
+	names, err := d.Readdirnames(-1)
+	if err != nil {
+		return err
+	}
+	for _, name := range(names) {
+		err = os.Remove(name)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// This function is being used to help determine if each subMap has unique
+// elements.
+func debugSubMaps (subMaps []map[string]int) {
+	err := removeContents("subMaps")
+	if err != nil {
+		fmt.Printf("\nSomething went wrong removing contents of subMaps\n")
+		fmt.Println(err)
+		return
+	}
+
+	for i, subMap := range(subMaps) {
+		filePath := fmt.Sprintf("subMaps/subMap%d", i)
+		f, err := os.Create(filePath)
+		if err != nil {
+			fmt.Printf("\nError creating %s\n", filePath)
+			fmt.Println(err)
+			return
+		}
+
+		data := []byte("")
+		for key, value := range(subMap) {
+			temp := fmt.Sprintf("%s: %d\n", key, value)
+			data = append(data, []byte(temp)...)
+		}
+
+		_, err = f.Write(data)
+		if err != nil {
+			fmt.Printf("\nError writing to %s\n", filePath)
+			fmt.Println(err)
+			return
+		}
+
+		f.Close()
+	}
+}
+
 func ExtractPalette(
 	uploaded image.Image,
 	colsToExtract int,
@@ -441,5 +601,5 @@ func ExtractPaletteConcurrent(
 		colorFrequencyMap,
 		numberOfGoroutines,
 	)
-	return rgbaToHexArr(GetMostProminentColors(colsToExtract, colorFrequencyMap))
+	return rgbaToHexArr(getMostProminentColorsImproved(colsToExtract, colorFrequencyMap, tolerance))
 }
