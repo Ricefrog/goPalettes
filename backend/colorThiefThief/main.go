@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"sort"
+	"sqrt"
 )
 
 const SIGBITS = 5
@@ -70,7 +71,7 @@ func (v VBox) copy() VBox {
 	}
 }
 
-func (v VBox) avg() (int, int, int) {
+func (v VBox) avg() []int {
 	ntot := 0
 	mult := 1 << (8 - SIGBITS) // 8
 	r_sum := 0.0
@@ -99,7 +100,7 @@ func (v VBox) avg() (int, int, int) {
 		g_avg := int(mult * (v.g1 + v.g2 + 1) / 2)
 		b_avg := int(mult * (v.b1 + v.b2 + 1) / 2)
 	}
-	return r_avg, g_avg, b_avg
+	return []int{r_avg, g_avg, b_avg}
 }
 
 func (v VBox) contains(pixel []int) bool {
@@ -141,20 +142,95 @@ func (v VBox) count() int {
 	return npix
 }
 //------------------------------------------------------------------------------
+type vbAndColor struct {
+	vbox VBox
+	color []int
+}
 // Color map
 type CMap struct {
-	vBoxes PQueue
+	vBoxes VCQueue
+}
+
+// Initialize the VCQueue passing in the sort key function.
+// The function returns the condition for which the first parameter is less
+// than the second.
+func createCMap() *CMap {
+	return &CMap{
+		vBoxes: createVCQueue(func (i, j vbAndColor) bool {
+			return (i.vbox.count*i.vbox.volume) < (j.vbox.count*j.vbox.volume)
+		})
+	}
+}
+
+// Returns an array of the color arrays of each vbAndColor struct.
+func (c CMap) palette() [][]int {
+	ret := make([][]int, len(c.vBoxes))
+	for i := range(ret) {
+		colorArr := c.vBoxes[i].color
+		ret[i] := int{colorArr...}
+	}
+}
+
+func (c *CMap) push(vbox VBox) {
+	newVbc := vbAndColor{
+		vbox,
+		color: vbox.avg(),
+	}
+	c.vBoxes = append(c.vBoxes, newVbc)
+}
+
+func (c CMap) size() int {
+	return c.vBoxes.size()
+}
+
+func (c CMap) nearest(color []int) []int {
+	var d1 float64 = nil
+	p_color := make([]int, 3)
+
+	for i := range(c.vBoxes.size()) {
+		vbox := c.vBoxes.peek(i)
+		d2 := math.Sqrt(
+			math.Pow(color[0] - vbox.color[0], 2) +
+			math.Pow(color[1] - vbox.color[1], 2) +
+			math.Pow(color[2] - vbox.color[2], 2)
+		)
+		if d1 == nil || d2 < d1 {
+			d1 = d2
+			p_color = int{vbox.color...}
+		}
+	}
+	return p_color
+}
+
+// Returns the average color of the vBox that contains the color parameter.
+// If none of the existing vBoxes contain the color, return the average color 
+// of the nearest vBox.
+func (c CMap) map(color []int) []int {
+	for i := range(c.vBoxes.size()) {
+		vbox := c.vBoxes.peek(i)
+		if vbox.contains(color):
+			return vbox.color
+	}
+	return c.nearest(color)
 }
 
 //------------------------------------------------------------------------------
 // Priority queue for vBoxes
-type sort_key func(int int) bool
-type mapFunction func(VBox) VBox
+type vq_sort_key func(int int) bool
+type vq_mapFunction func(VBox) VBox
 
 type VQueue struct {
-	sortKey sort_key
+	sortKey vq_sort_key
 	contents []VBox
 	sorted bool
+}
+
+func createVQueue(key vq_sort_key) *VQueue {
+	return &VQueue{
+		sortKey: key,
+		contents: make([]VBox),
+		sorted: False,
+	}
 }
 
 func (vq *VQueue) sort() {
@@ -187,12 +263,65 @@ func (vq VQueue) size() int {
 	return len(vq.contents)
 }
 
-func (vq VQueue) mapFunc(f_to_use mapFunction) {
+func (vq VQueue) mapFunc(f_to_use vq_mapFunction) {
 	retArr := []VBox
 	for i, el := range(vq.contents) {
 		retArr[i] :=  f_to_use(el)
 	}
 }
 
-// The median cut algorithm needs an array of rgb pixel slices.
+//------------------------------------------------------------------------------
+// Priority queue for vbAndColor structs
+type vcq_sort_key func(vbAndColor, vbAndColor) bool
+type vcq_mapFunction func(vbAndColor) vbAndColor
 
+type VCQueue struct {
+	sortKey vcq_sort_key
+	contents []vbAndColor
+	sorted bool
+}
+
+func createVCQueue(key vcq_sort_key) *VCQueue {
+	return &VCQueue{
+		sortKey: key,
+		contents: make([]vbAndColor),
+		sorted: False,
+	}
+}
+
+func (vcq *VCQueue) sort() {
+	sort.Slice(vcq.contents, vcq.sortKey)
+	vcq.sorted = True
+}
+
+func (vcq *VCQueue) push(el VBox) {
+	vcq.contents := append(vcq.contents, el)
+	vcq.sorted = False
+}
+
+func (vcq *VCQueue) peek(index int) VBox {
+	if !vcq.sorted {
+		vcq.sort()
+	}
+	return vcq.contents[index]
+}
+
+func (vcq *VCQueue) pop() VBox {
+	if !vcq.sorted {
+		vcq.sort()
+	}
+	ret := vcq.contents[len(vcq.contents) - 1]
+	vcq.contents = vcq.contents[:len(vcq.contents)]
+	return ret
+}
+
+func (vcq VCQueue) size() int {
+	return len(vcq.contents)
+}
+
+func (vcq VCQueue) mapFunc(f_to_use vcq_mapFunction) {
+	retArr := []VBox
+	for i, el := range(vcq.contents) {
+		retArr[i] :=  f_to_use(el)
+	}
+}
