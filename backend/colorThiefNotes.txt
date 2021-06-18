@@ -1,0 +1,30 @@
+Some notes I have taken while looking through the colorThief program for Python.
+
+- Pixels are only considered valid if they are mostly opaque and not white.
+- There is a parameter called "quality" that represents the step size used when
+  cycling through the array of pixels in the image. The higher the value the 
+  more faster it runs but the lower the chance that the returned colors are 
+  accurate.
+- Pixel values are clustered using the median cut algorithm.
+- Modified median-cut color quantization algorithm is implemented in Python.
+
+Notes on color quantization from leptonica docs:
+- Instead of each pixel holding 24 bits of rgb data, they hold an 8 bit index
+  that can be used to retrieve a 24 bit color from a color table. An 8-bit index
+  can therefore point to up to 256 different 24 bit colors in a table.
+- 16 million colors can be created with 24 bit rgb. Choosing 256 to represent
+  these colors is the problem we are trying to solve.
+- Choosing a good set of approximate representatives is an example of vector
+  quantization (rgb are the dimensions of the vectors).
+- Vector quantization as opposed to scalar quantization.
+- Error diffusion dithering is used to make colors appear accurate despite
+  working with a limited color palette.
+
+Notes on the median cut algorithm:
+- Repeatedly divide 3D regions in colorspace in such a way that the two parts
+  have roughly equal number of pixels.
+- The axis for subdivision can be chosen based on the length of the side or the 
+  variance of pixel values along that axis.
+- After the space is split up the colormap is assigned with one color for each
+  section.
+
