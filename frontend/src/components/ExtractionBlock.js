@@ -99,6 +99,7 @@ const DisplayPalette = ({ display }) => {
 	const [palette, setPalette] = useState([]);
 	const [loading, setLoading] = useState(false);
 	const [concurrent, setConcurrent] = useState(false);
+	const [mode, setMode] = useState(0)
 
 	if (!display) {
 		return null;
@@ -107,7 +108,7 @@ const DisplayPalette = ({ display }) => {
 	const getPalette = () => {
 		const urlToUse = 
 		`${API_URL}/extract/?colors=${numCols}&concurrent=${concurrent}`
-		+ `&goroutines=${numGo}&tolerance=${tolerance}`;
+		+ `&mode=${mode}&goroutines=${numGo}&tolerance=${tolerance}`;
 
 		const options = {
 			method: 'GET',

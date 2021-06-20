@@ -123,8 +123,16 @@ func extract(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("URL param \"concurrent\" is missing. ")
 		return
 	}
-
 	useConcurrent := keys[0]
+
+	keys, ok = r.URL.Query()["mode"]
+	if !ok {
+		fmt.Println("URL param \"mode\" is missing. ")
+		return
+	}
+	if keys[0] == "0" {
+		useConcurrent = "other"
+	}
 	fmt.Printf("Concurrent mode: %v\n", useConcurrent)
 
 	start := time.Now()
@@ -150,12 +158,21 @@ func extract(w http.ResponseWriter, r *http.Request) {
 			numberOfGoroutines,
 			float64(tolerance),
 		)
-	} else {
+	} else if useConcurrent == "false" {
 		colors = imageManip.ExtractPalette(
 			UPLOADED_IMAGE,
 			numOfColors,
 			float64(tolerance),
 		)
+	} else { // Use colorThief implementation.
+		// TODO: Add information about the frequency of the colors in the
+		// returned palette.
+		colors, err = imageManip.GetPalette(UPLOADED_IMAGE, numOfColors)
+		if err != nil {
+			fmt.Println("Error calling GetPalette.")
+			fmt.Println(err)
+			return
+		}
 	}
 
 	fmt.Println("Colors:", colors)

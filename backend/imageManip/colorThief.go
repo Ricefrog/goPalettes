@@ -1,10 +1,14 @@
-package main
+package imageManip
 
 import (
-	"fmt"
+	"image"
+	_ "image/png"
+	_ "image/jpeg"
 	"sort"
 	"math"
 	"errors"
+	"strconv"
+	"fmt"
 )
 
 // I am re-implementing the MMCQ (modified median cut quantization) algorithm
@@ -42,6 +46,7 @@ func getColorIndex(r int, g int, b int) int {
 // histo is a map that gives the number of pixels in each quantized region
 // of color space.
 func getHisto(pixels [][]int) map[int]int {
+	fmt.Println("getHisto called.")
 	histo := make(map[int]int)
 	for _, pixel := range(pixels) {
 		// 8-bit values turned into 5-bit values.
@@ -51,10 +56,12 @@ func getHisto(pixels [][]int) map[int]int {
 		index := getColorIndex(rval, gval, bval)
 		histo[index] += 1
 	}
+	fmt.Println("getHisto returning.")
 	return histo
 }
 
-func VBoxFromPixels(pixels [][]int, histo map[int]int) *VBox {
+func vBoxFromPixels(pixels [][]int, histo map[int]int) *VBox {
+	fmt.Println("vBoxFromPixels called.")
 	rmin := 1000000
 	rmax := 0
 	gmin := 1000000
@@ -74,6 +81,7 @@ func VBoxFromPixels(pixels [][]int, histo map[int]int) *VBox {
 		bmax = max(bval, bmax)
 	}
 
+	fmt.Println("vBoxFromPixels returning.")
 	return &VBox{
 		r1: rmin,
 		r2: rmax,
@@ -86,13 +94,16 @@ func VBoxFromPixels(pixels [][]int, histo map[int]int) *VBox {
 }
 
 // This function decides how to split each vbox.
-func MedianCutApply(histo map[int]int, vbox VBox) (VBox, VBox) {
+func medianCutApply(histo map[int]int, vbox VBox) (VBox, VBox) {
+	fmt.Println("medianCutApply called.")
 	// Return nothing if vbox contains no pixels.
 	if (vbox.count() == 0) {
+		fmt.Println("medianCutApply returning zero size.")
 		return VBox{invalid: true}, VBox{invalid: true}
 	}
 	// If only one pixel just return original vbox without splitting.
 	if (vbox.count() == 1) {
+		fmt.Println("medianCutApply returning one pixel.")
 		return vbox.copy(), VBox{invalid: true}
 	}
 
@@ -194,6 +205,7 @@ func MedianCutApply(histo map[int]int, vbox VBox) (VBox, VBox) {
 			// Create function to set attributes based on strings.
 			vbox1.setDimWithString(dim2, d2)
 			vbox2.setDimWithString(dim1, vbox1.getDimWithString(dim2)+1)
+			fmt.Println("medianCutApply returning.")
 			return vbox1, vbox2
 		}
 	}
@@ -201,7 +213,8 @@ func MedianCutApply(histo map[int]int, vbox VBox) (VBox, VBox) {
 }
 
 // maxColor is the max number of colors to extract.
-func Quantize(pixels [][]int, maxColor int) (CMap, error) {
+func quantize(pixels [][]int, maxColor int) (CMap, error) {
+	fmt.Println("quantize has been called.")
 	if len(pixels) == 0 {
 		retErr := errors.New("In Quantize: Empty pixel array.\n")
 		return CMap{invalid: true}, retErr
@@ -218,10 +231,10 @@ func Quantize(pixels [][]int, maxColor int) (CMap, error) {
 	}
 
 	// Get the starting vbox from the colors.
-	vbox := *VBoxFromPixels(pixels, histo)
-	vq := *createVQueue(func(a, b VBox) bool {
-		return a.count() < b.count()
-	})
+	vbox := *vBoxFromPixels(pixels, histo)
+	fmt.Println("Creating VQueue.")
+	vq := *createVQueue("byCount")
+	fmt.Println("VQueue created.")
 	vq.push(vbox)
 
 	// Inner function to do the iteration.
@@ -236,7 +249,7 @@ func Quantize(pixels [][]int, maxColor int) (CMap, error) {
 				continue
 			}
 			// Do the cut.
-			vbox1, vbox2 := MedianCutApply(histo, vbox)
+			vbox1, vbox2 := medianCutApply(histo, vbox)
 			if vbox1.invalid {
 				return errors.New(
 					"In Quantize:iter: Something went wrong when making cut.")
@@ -256,21 +269,25 @@ func Quantize(pixels [][]int, maxColor int) (CMap, error) {
 		}
 		return errors.New("In Quantize:iter: No proper return.")
 	}
+	fmt.Println("iter function created.")
 
 	// First set of colors, sorted by population.
+	fmt.Println("First iter called.")
 	err := iter(vq, FRACT_BY_POPULATIONS * float64(maxColor))
+	fmt.Println("First iter returned.")
 	if err != nil {
 		return CMap{invalid: true}, err
 	}
 
 	// Re-sort by the product of pixel occupancy times the size in a color 
 	// space.
-	vq2 := *createVQueue(func(a, b VBox) bool {
-		return (a.count()*a.volume()) < (b.count()*b.volume())
-	})
+	fmt.Println("Creating second VQueue.")
+	vq2 := *createVQueue("byCountTimesVolume")
+	fmt.Println("Second VQueue created.")
 	for vq.size() > 0 {
 		vq2.push(vq.pop())
 	}
+	fmt.Println("VBoxes pushed onto second VQueue.")
 
 	// Next set: Generate the median cuts using the (npix * vol) sorting.
 	err = iter(vq2, float64(maxColor - vq2.size()))
@@ -283,7 +300,69 @@ func Quantize(pixels [][]int, maxColor int) (CMap, error) {
 	for vq2.size() > 0 {
 		cmap.push(vq2.pop())
 	}
+	fmt.Println("quantize returning.")
 	return cmap, nil
+}
+
+func GetPalette(img image.Image, colorCount int) ([]ColAndFreq, error) {
+	pixels := make([][]int, 0)
+	xLower, xUpper := img.Bounds().Min.X, img.Bounds().Max.X
+	yLower, yUpper := img.Bounds().Min.Y, img.Bounds().Max.Y
+
+	for i := xLower; i < xUpper; i++ {
+		for j := yLower; j < yUpper; j++ {
+			r, g, b, _ := img.At(i, j).RGBA()
+			// I can add criteria for valid pixels later.
+			currentPixel := []int{int(r), int(g), int(b)}
+			pixels = append(pixels, currentPixel)
+		}
+	}
+
+	cMap, err := quantize(pixels, colorCount)
+	if err != nil {
+		return nil, err
+	}
+	retFirst := rgbPixelsToHexStrings(cMap.palette())
+	retFinal := stringsToColAndFreqs(retFirst)
+	return retFinal, nil
+}
+
+// Frequency field carries no info.
+// Band-aid function to fit original API.
+func stringsToColAndFreqs(strs []string) []ColAndFreq {
+	retSlice := make([]ColAndFreq, len(strs))
+	for i, str := range strs {
+		retSlice[i] = ColAndFreq{ColString: str, Frequency: 0}
+	}
+	return retSlice
+}
+
+func rgbPixelsToHexStrings(pixels [][]int) []string {
+	hexStrings := make([]string, len(pixels))
+	for i, pixel := range pixels {
+		hexStrings[i] = rgbPixelToHexString(pixel)
+	}
+	return hexStrings
+}
+
+func rgbPixelToHexString(pixel []int) string {
+	r, g, b := pixel[0], pixel[1], pixel[2]
+
+	rh := strconv.FormatInt(int64(r), 16)
+	if len(rh) == 1 {
+		rh = "0"+rh
+	}
+	gh := strconv.FormatInt(int64(g), 16)
+	if len(gh) == 1 {
+		gh = "0"+gh
+	}
+	bh := strconv.FormatInt(int64(b), 16)
+	if len(bh) == 1 {
+		bh = "0"+bh
+	}
+
+	hexString := "#"+rh+gh+bh
+	return hexString
 }
 
 //------------------------------------------------------------------------------
@@ -383,13 +462,13 @@ func (v VBox) avg() []int {
 	var g_avg int
 	var b_avg int
 	if (ntot > 0) {
-		r_avg := int(r_sum / float64(ntot))
-		g_avg := int(g_sum / float64(ntot))
-		b_avg := int(b_sum / float64(ntot))
+		r_avg = int(r_sum / float64(ntot))
+		g_avg = int(g_sum / float64(ntot))
+		b_avg = int(b_sum / float64(ntot))
 	} else {
-		r_avg := int(mult * (v.r1 + v.r2 + 1) / 2)
-		g_avg := int(mult * (v.g1 + v.g2 + 1) / 2)
-		b_avg := int(mult * (v.b1 + v.b2 + 1) / 2)
+		r_avg = int(mult * (v.r1 + v.r2 + 1) / 2)
+		g_avg = int(mult * (v.g1 + v.g2 + 1) / 2)
+		b_avg = int(mult * (v.b1 + v.b2 + 1) / 2)
 	}
 	return []int{r_avg, g_avg, b_avg}
 }
@@ -447,10 +526,7 @@ type CMap struct {
 // The function returns the condition for which the first parameter is less
 // than the second.
 func createCMap() *CMap {
-	sortF := func(i, j vbAndColor) bool {
-		return (i.vbox.count()*i.vbox.volume())<(j.vbox.count()*j.vbox.volume())
-	}
-	return &CMap{ vBoxes: *createVCQueue(sortF), invalid: false }
+	return &CMap{ vBoxes: *createVCQueue("byCountTimesVolume"), invalid: false }
 }
 
 // Returns an array of the color arrays of each vbAndColor struct.
@@ -511,16 +587,16 @@ func (c CMap) map(color []int) []int {
 
 //------------------------------------------------------------------------------
 // Priority queue for vBoxes
-type vq_sort_key func(VBox, VBox) bool
+type lessFunc func(int, int) bool
 type vq_mapFunction func(VBox) VBox
 
 type VQueue struct {
-	sortKey vq_sort_key
+	sortKey string
 	contents []VBox
 	sorted bool
 }
 
-func createVQueue(key vq_sort_key) *VQueue {
+func createVQueue(key string) *VQueue {
 	return &VQueue{
 		sortKey: key,
 		contents: make([]VBox, 0),
@@ -529,12 +605,30 @@ func createVQueue(key vq_sort_key) *VQueue {
 }
 
 func (vq *VQueue) sort() {
-	sort.Slice(vq.contents, vq.sortKey)
+	var funcToUse lessFunc
+
+	switch vq.sortKey {
+	case "byCount":
+		funcToUse = func(i, j int) bool {
+			return vq.contents[i].count() < vq.contents[j].count()
+		}
+	case "byCountTimesVolume":
+		funcToUse = func(i, j int) bool {
+			c1, c2 := vq.contents[i], vq.contents[j]
+			return c1.count()*c1.volume() < c2.count()*c2.volume()
+		}
+	default:
+		funcToUse = func(i, j int) bool {
+			return vq.contents[i].count() < vq.contents[j].count()
+		}
+	}
+
+	sort.Slice(vq.contents, funcToUse)
 	vq.sorted = true
 }
 
 func (vq *VQueue) push(el VBox) {
-	vq.contents := append(vq.contents, el)
+	vq.contents = append(vq.contents, el)
 	vq.sorted = false
 }
 
@@ -559,38 +653,57 @@ func (vq VQueue) size() int {
 }
 
 func (vq VQueue) mapFunc(f_to_use vq_mapFunction) {
-	retArr := []VBox
+	retArr := make([]VBox, len(vq.contents))
 	for i, el := range(vq.contents) {
-		retArr[i] :=  f_to_use(el)
+		retArr[i] =  f_to_use(el)
 	}
 }
 
 //------------------------------------------------------------------------------
 // Priority queue for vbAndColor structs
-type vcq_sort_key func(vbAndColor, vbAndColor) bool
 type vcq_mapFunction func(vbAndColor) vbAndColor
 
 type VCQueue struct {
-	sortKey vcq_sort_key
+	sortKey string
 	contents []vbAndColor
 	sorted bool
 }
 
-func createVCQueue(key vcq_sort_key) *VCQueue {
+func createVCQueue(key string) *VCQueue {
 	return &VCQueue{
 		sortKey: key,
-		contents: make([]vbAndColor),
+		contents: make([]vbAndColor, 0),
 		sorted: false,
 	}
 }
 
 func (vcq *VCQueue) sort() {
-	sort.Slice(vcq.contents, vcq.sortKey)
+	var funcToUse lessFunc
+
+	switch vcq.sortKey {
+	case "byCount":
+		funcToUse = func(i, j int) bool {
+			c1, c2 := vcq.contents[i].vbox, vcq.contents[j].vbox
+			return c1.count() < c2.count()
+		}
+	case "byCountTimesVolume":
+		funcToUse = func(i, j int) bool {
+			c1, c2 := vcq.contents[i].vbox, vcq.contents[j].vbox
+			return c1.count()*c1.volume() < c2.count()*c2.volume()
+		}
+	default:
+		funcToUse = func(i, j int) bool {
+			c1, c2 := vcq.contents[i].vbox, vcq.contents[j].vbox
+			return c1.count() < c2.count()
+		}
+	}
+
+	sort.Slice(vcq.contents, funcToUse)
 	vcq.sorted = true
 }
 
 func (vcq *VCQueue) push(el vbAndColor) {
-	vcq.contents := append(vcq.contents, el)
+	vcq.contents = append(vcq.contents, el)
 	vcq.sorted = false
 }
 
@@ -615,12 +728,8 @@ func (vcq VCQueue) size() int {
 }
 
 func (vcq VCQueue) mapFunc(f_to_use vcq_mapFunction) {
-	retArr := []vbAndColor
+	retArr := make([]vbAndColor, len(vcq.contents))
 	for i, el := range(vcq.contents) {
-		retArr[i] :=  f_to_use(el)
+		retArr[i] =  f_to_use(el)
 	}
-}
-
-func main() {
-	fmt.Println("Works!")
 }
