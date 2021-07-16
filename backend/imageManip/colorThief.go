@@ -206,6 +206,10 @@ func medianCutApply(histo map[int]int, vbox VBox) (VBox, VBox) {
 			vbox1.setDimWithString(dim2, d2)
 			vbox2.setDimWithString(dim1, vbox1.getDimWithString(dim2)+1)
 			fmt.Println("medianCutApply returning.")
+			fmt.Println("vbox1:")
+			vbox1.printBounds()
+			fmt.Println("vbox2:")
+			vbox2.printBounds()
 			return vbox1, vbox2
 		}
 	}
@@ -232,24 +236,30 @@ func quantize(pixels [][]int, maxColor int) (CMap, error) {
 
 	// Get the starting vbox from the colors.
 	vbox := *vBoxFromPixels(pixels, histo)
+	//fmt.Printf("vbox:\n%+v\n", vbox)
 	fmt.Println("Creating VQueue.")
 	vq := *createVQueue("byCount")
-	fmt.Println("VQueue created.")
 	vq.push(vbox)
+	fmt.Println("VQueue created and vbox pushed into contents.")
+	//fmt.Printf("vq:\n%+v\n", vq)
 
 	// Inner function to do the iteration.
 	iter := func(lh VQueue, target float64) error {
 		nColor := 1
 		nIter := 0
 		for nIter < MAX_ITERATION {
-			vbox = lh.pop()
-			if vbox.count() == 0 {
-				lh.push(vbox)
+			fmt.Printf("nIter: %d, nColor: %d\n", nIter, nColor)
+			vbox_ := lh.pop()
+			fmt.Println("vbox_ created.")
+			if vbox_.count() == 0 {
+				fmt.Println("vbox_.count() == 0")
+				lh.push(vbox_)
 				nIter += 1
 				continue
 			}
+			fmt.Println("vbox_.count() != 0")
 			// Do the cut.
-			vbox1, vbox2 := medianCutApply(histo, vbox)
+			vbox1, vbox2 := medianCutApply(histo, vbox_)
 			if vbox1.invalid {
 				return errors.New(
 					"In Quantize:iter: Something went wrong when making cut.")
@@ -312,6 +322,9 @@ func GetPalette(img image.Image, colorCount int) ([]ColAndFreq, error) {
 	for i := xLower; i < xUpper; i++ {
 		for j := yLower; j < yUpper; j++ {
 			r, g, b, _ := img.At(i, j).RGBA()
+			r /= 257
+			g /= 257
+			b /= 257
 			// I can add criteria for valid pixels later.
 			currentPixel := []int{int(r), int(g), int(b)}
 			pixels = append(pixels, currentPixel)
@@ -414,14 +427,14 @@ func (v *VBox) getDimWithString(fstr string) int {
 	}
 }
 
-func (v VBox) volume() int {
+func (v *VBox) volume() int {
 	sub_r := v.r2 - v.r1
 	sub_g := v.g2 - v.g1
 	sub_b := v.b2 - v.b1
 	return (sub_r + 1) * (sub_g + 1) * (sub_b + 1)
 }
 
-func (v VBox) copy() VBox {
+func (v *VBox) copy() VBox {
 	histo := make(map[int]int)
 	for k, v := range(v.histo) {
 		histo[k] = histo[v]
@@ -438,7 +451,7 @@ func (v VBox) copy() VBox {
 	}
 }
 
-func (v VBox) avg() []int {
+func (v *VBox) avg() []int {
 	ntot := 0
 	mult := 1 << (8 - SIGBITS) // 8
 	r_sum := 0.0
@@ -473,7 +486,7 @@ func (v VBox) avg() []int {
 	return []int{r_avg, g_avg, b_avg}
 }
 
-func (v VBox) contains(pixel []int) bool {
+func (v *VBox) contains(pixel []int) bool {
 	rval := pixel[0] >> RSHIFT
 	gval := pixel[1] >> RSHIFT
 	bval := pixel[2] >> RSHIFT
@@ -499,7 +512,9 @@ func (v VBox) contains(pixel []int) bool {
 	return true
 }
 
-func (v VBox) count() int {
+func (v *VBox) count() int {
+	fmt.Println("count method called.")
+	v.printBounds()
 	npix := 0
 	for i := v.r1; i <= v.r2; i++ {
 		for j := v.g1; j <= v.g2; j++ {
@@ -509,7 +524,17 @@ func (v VBox) count() int {
 			}
 		}
 	}
+	fmt.Printf("count method returning %d.\n", npix)
 	return npix
+}
+
+func (v *VBox) printBounds() {
+	fmt.Printf("r1: %d\n", v.r1)
+	fmt.Printf("r2: %d\n", v.r2)
+	fmt.Printf("g1: %d\n", v.g1)
+	fmt.Printf("g2: %d\n", v.g2)
+	fmt.Printf("b1: %d\n", v.b1)
+	fmt.Printf("b2: %d\n", v.b2)
 }
 //------------------------------------------------------------------------------
 type vbAndColor struct {

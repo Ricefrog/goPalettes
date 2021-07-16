@@ -130,9 +130,11 @@ func extract(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("URL param \"mode\" is missing. ")
 		return
 	}
+
 	if keys[0] == "0" {
 		useConcurrent = "other"
 	}
+
 	fmt.Printf("Concurrent mode: %v\n", useConcurrent)
 
 	start := time.Now()
