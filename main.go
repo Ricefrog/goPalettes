@@ -7,12 +7,14 @@ import (
 	"image/color"
 	"log"
 	"os"
+	"runtime"
 
 	"gioui.org/app"
 	"gioui.org/font/gofont"
 	"gioui.org/io/system"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
@@ -22,6 +24,10 @@ import (
 type (
 	C = layout.Context
 	D = layout.Dimensions
+)
+
+const (
+	MARGIN1 = 25
 )
 
 type state struct {
@@ -73,10 +79,12 @@ func draw(w *app.Window, img image.Image) error {
 				go func() {
 					programState.loadingPalette = true
 					numOfColors := 5
+					goRoutines := runtime.NumCPU()
 					var tolerance float64 = 10
-					colors := imageManip.ExtractPalette(
+					colors := imageManip.ExtractPaletteConcurrent(
 						img,
 						numOfColors,
+						goRoutines,
 						tolerance,
 					)
 					fmt.Println(colors)
@@ -116,7 +124,7 @@ func draw(w *app.Window, img image.Image) error {
 func imageLayout(gtx C, imgWidget *widget.Image) layout.Widget {
 	return func(gtx C) D {
 
-		margins := layout.UniformInset(unit.Dp(25))
+		margins := layout.UniformInset(unit.Dp(MARGIN1))
 
 		border := widget.Border{
 			Color: color.NRGBA{R: 255, A: 255},
@@ -135,7 +143,7 @@ func imageLayout(gtx C, imgWidget *widget.Image) layout.Widget {
 
 func paletteLayout(gtx C, th *material.Theme) layout.Widget {
 	margins := layout.Inset{
-		Left: unit.Dp(25),
+		Left: unit.Dp(MARGIN1),
 	}
 
 	label := material.H3(th, "Palette: ").Layout
@@ -145,7 +153,8 @@ func paletteLayout(gtx C, th *material.Theme) layout.Widget {
 	} else if len(programState.palette) == 0 {
 		innerWidget = material.H6(th, "None").Layout
 	} else {
-		innerWidget = material.H6(th, fmt.Sprintf("%v", programState.palette)).Layout
+		//innerWidget = material.H6(th, fmt.Sprintf("%v", programState.palette)).Layout
+		innerWidget = paletteWidget(gtx)
 	}
 
 	return func(gtx C) D {
@@ -164,8 +173,36 @@ func paletteLayout(gtx C, th *material.Theme) layout.Widget {
 	}
 }
 
+func paletteWidget(gtx C) layout.Widget {
+	return func(gtx C) D {
+		position := 0
+		numBlocks := len(programState.palette)
+
+		totalWidth := gtx.Constraints.Max.X - MARGIN1
+		totalHeight := 30
+		gapWidth := 5
+		blockWidth := totalWidth/numBlocks - gapWidth
+
+		op.Offset(image.Point{X: gapWidth}).Add(gtx.Ops)
+		for _, c := range programState.palette {
+			stack := clip.Rect{
+				Max: image.Point{blockWidth, totalHeight},
+			}.Push(gtx.Ops)
+
+			//paint.ColorOp{Color: color.NRGBA{R: 255, A: 255}}.Add(gtx.Ops)
+			paint.ColorOp{Color: imageManip.HexToNRGBA(c)}.Add(gtx.Ops)
+			paint.PaintOp{}.Add(gtx.Ops)
+
+			stack.Pop()
+			op.Offset(image.Point{X: position + blockWidth + gapWidth}).Add(gtx.Ops)
+		}
+
+		return layout.Dimensions{Size: image.Point{Y: totalHeight}}
+	}
+}
+
 func buttonLayout(gtx C, button *widget.Clickable, th *material.Theme) layout.Widget {
-	margins := layout.UniformInset(unit.Dp(25))
+	margins := layout.UniformInset(unit.Dp(MARGIN1))
 
 	return func(gtx C) D {
 		return margins.Layout(gtx,
