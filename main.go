@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"goPalettes/imageManip"
 	"image"
 	"image/color"
 	"log"
@@ -18,16 +19,34 @@ import (
 	"gioui.org/widget/material"
 )
 
-type C = layout.Context
-type D = layout.Dimensions
+type (
+	C = layout.Context
+	D = layout.Dimensions
+)
+
+type state struct {
+	palette        []string
+	loadingPalette bool
+}
+
+var programState state
 
 func main() {
+	f, err := os.Open("./images/basado1.png")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer f.Close()
+
+	img, _, err := image.Decode(f)
+
 	go func() {
 		w := app.NewWindow(
 			app.Title("goPalettes"),
+			app.MinSize(unit.Dp(300), unit.Dp(600)),
 		)
 
-		if err := draw(w); err != nil {
+		if err := draw(w, img); err != nil {
 			log.Fatal(err)
 		}
 		os.Exit(0)
@@ -35,21 +54,14 @@ func main() {
 	app.Main()
 }
 
-func draw(w *app.Window) error {
+func draw(w *app.Window, img image.Image) error {
 	var ops op.Ops
 	var button widget.Clickable
 	var imgWidget widget.Image
 
-	f, err := os.Open("./images/basado1.png")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer f.Close()
-
-	img, format, err := image.Decode(f)
-	fmt.Printf("format: %s\n", format)
 	imgWidget.Src = paint.NewImageOp(img)
-	imgWidget.Fit = widget.Contain
+	imgWidget.Fit = widget.ScaleDown
+	imgWidget.Position = layout.Center
 
 	th := material.NewTheme(gofont.Collection())
 	for e := range w.Events() {
@@ -57,15 +69,36 @@ func draw(w *app.Window) error {
 		case system.FrameEvent:
 			gtx := layout.NewContext(&ops, e)
 
-			//viewBoxHeight := unit.Dp(gtx.Constraints.Max.Y * 3 / 4)
-			//controlBoxHeight := gtx.Constraints.Max.Y / 4
+			if button.Clicked() {
+				go func() {
+					programState.loadingPalette = true
+					numOfColors := 5
+					var tolerance float64 = 10
+					colors := imageManip.ExtractPalette(
+						img,
+						numOfColors,
+						tolerance,
+					)
+					fmt.Println(colors)
+					p := make([]string, len(colors))
+					for i, c := range colors {
+						p[i] = c.ColString
+					}
+					programState.palette = p
+					programState.loadingPalette = false
+					w.Invalidate()
+				}()
+			}
 
 			layout.Flex{
 				Axis:    layout.Vertical,
 				Spacing: layout.SpaceStart,
 			}.Layout(gtx,
-				layout.Rigid(
+				layout.Flexed(1,
 					imageLayout(gtx, &imgWidget),
+				),
+				layout.Rigid(
+					paletteLayout(gtx, th),
 				),
 				layout.Rigid(
 					buttonLayout(gtx, &button, th),
@@ -80,40 +113,10 @@ func draw(w *app.Window) error {
 	return nil
 }
 
-func buttonLayout(gtx C, button *widget.Clickable, th *material.Theme) layout.Widget {
-	margins := layout.Inset{
-		Top:    unit.Dp(25),
-		Bottom: unit.Dp(25),
-		Right:  unit.Dp(25),
-		Left:   unit.Dp(25),
-	}
-	return func(gtx C) D {
-		return margins.Layout(gtx,
-			func(gtx C) D {
-				btn := material.Button(th, button, "raise glass")
-				return btn.Layout(gtx) // how can i pass in minimum dimension constraints??
-				/*
-					return btn.Layout(gtx,
-						func(gtx C) D {
-							return layout.Dimensions{
-								Size: image.Point{Y: 50},
-							}
-						},
-					)
-				*/
-			},
-		)
-	}
-}
-
 func imageLayout(gtx C, imgWidget *widget.Image) layout.Widget {
 	return func(gtx C) D {
-		margins := layout.Inset{
-			Top:    unit.Dp(25),
-			Bottom: unit.Dp(25),
-			Right:  unit.Dp(25),
-			Left:   unit.Dp(25),
-		}
+
+		margins := layout.UniformInset(unit.Dp(25))
 
 		border := widget.Border{
 			Color: color.NRGBA{R: 255, A: 255},
@@ -123,8 +126,52 @@ func imageLayout(gtx C, imgWidget *widget.Image) layout.Widget {
 		return margins.Layout(gtx,
 			func(gtx C) D {
 				return border.Layout(gtx,
-					imgWidget.Layout,
+					func(gtx C) D { return margins.Layout(gtx, imgWidget.Layout) },
 				)
+			},
+		)
+	}
+}
+
+func paletteLayout(gtx C, th *material.Theme) layout.Widget {
+	margins := layout.Inset{
+		Left: unit.Dp(25),
+	}
+
+	label := material.H3(th, "Palette: ").Layout
+	var innerWidget layout.Widget
+	if programState.loadingPalette {
+		innerWidget = material.H6(th, "Generating palette...").Layout
+	} else if len(programState.palette) == 0 {
+		innerWidget = material.H6(th, "None").Layout
+	} else {
+		innerWidget = material.H6(th, fmt.Sprintf("%v", programState.palette)).Layout
+	}
+
+	return func(gtx C) D {
+		return margins.Layout(gtx,
+			func(gtx C) D {
+				return layout.Flex{
+					Axis:      layout.Horizontal,
+					Spacing:   layout.SpaceEnd,
+					Alignment: layout.Middle,
+				}.Layout(gtx,
+					layout.Rigid(label),
+					layout.Rigid(innerWidget),
+				)
+			},
+		)
+	}
+}
+
+func buttonLayout(gtx C, button *widget.Clickable, th *material.Theme) layout.Widget {
+	margins := layout.UniformInset(unit.Dp(25))
+
+	return func(gtx C) D {
+		return margins.Layout(gtx,
+			func(gtx C) D {
+				btn := material.Button(th, button, "Get palette")
+				return btn.Layout(gtx) // how can i pass in minimum dimension constraints??
 			},
 		)
 	}
