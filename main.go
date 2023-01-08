@@ -1,9 +1,10 @@
 package main
 
 import (
-	wid "goPalettes/widgets"
 	"log"
 	"os"
+
+	"goPalettes/ui"
 
 	"gioui.org/app"
 	"gioui.org/io/system"
@@ -12,16 +13,18 @@ import (
 	"gioui.org/unit"
 )
 
-var programState wid.State
+var programState ui.State
 
 func main() {
 	programState.Init()
 
-	imgPath := "./images/basado1.png"
-	err := programState.SetCurImage(imgPath)
-	if err != nil {
-		log.Fatal(err)
-	}
+	/*
+		imgPath := "./images/basado1.png"
+		err := programState.SetCurImage(imgPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+	*/
 
 	go func() {
 		w := app.NewWindow(

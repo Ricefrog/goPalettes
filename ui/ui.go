@@ -1,10 +1,11 @@
-package widgets
+package ui
 
 import (
 	"fmt"
 	"goPalettes/imageManip"
 	"image"
 	"image/color"
+	"log"
 	"os"
 	"runtime"
 
@@ -18,6 +19,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/sqweek/dialog"
 )
 
 type (
@@ -36,6 +38,7 @@ type State struct {
 	palette          []colorBlock
 	loadingPalette   bool
 	buttonGetPalette widget.Clickable
+	buttonChooseFile widget.Clickable
 }
 
 func (s *State) Init() {
@@ -63,6 +66,23 @@ func (s *State) SetCurImage(filePath string) error {
 }
 
 func (s *State) Layout(w *app.Window, gtx C) {
+
+	if s.buttonChooseFile.Clicked() {
+		path, err := dialog.File().Filter("image", "png", "jpg").Load()
+		if err != nil {
+			if err != dialog.ErrCancelled {
+				log.Fatal(err)
+			}
+		}
+
+		if len(path) > 0 {
+			err := s.SetCurImage(path)
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+	}
+
 	if s.buttonGetPalette.Clicked() {
 		go func() {
 			s.loadingPalette = true
@@ -91,19 +111,19 @@ func (s *State) Layout(w *app.Window, gtx C) {
 		Spacing: layout.SpaceStart,
 	}.Layout(gtx,
 		layout.Flexed(1,
-			imageSection(gtx, &s.curImgWidget),
+			s.imageSection(gtx),
 		),
 		layout.Rigid(
-			paletteSection(gtx, s),
+			s.paletteSection(gtx),
 		),
 		layout.Rigid(
-			buttonGetPalette(gtx, s),
+			s.controlPanelSection(gtx),
 		),
 	)
 
 }
 
-func imageSection(gtx C, imgWidget *widget.Image) layout.Widget {
+func (s *State) imageSection(gtx C) layout.Widget {
 	return func(gtx C) D {
 
 		margins := layout.UniformInset(unit.Dp(MARGIN1))
@@ -113,17 +133,24 @@ func imageSection(gtx C, imgWidget *widget.Image) layout.Widget {
 			Width: unit.Dp(5),
 		}
 
+		var innerWidget layout.Widget
+		if s.curImg == nil {
+			innerWidget = material.H6(s.th, "No image selected.").Layout
+		} else {
+			innerWidget = s.curImgWidget.Layout
+		}
+
 		return margins.Layout(gtx,
 			func(gtx C) D {
 				return border.Layout(gtx,
-					func(gtx C) D { return margins.Layout(gtx, imgWidget.Layout) },
+					func(gtx C) D { return margins.Layout(gtx, innerWidget) },
 				)
 			},
 		)
 	}
 }
 
-func paletteSection(gtx C, s *State) layout.Widget {
+func (s *State) paletteSection(gtx C) layout.Widget {
 	margins := layout.Inset{
 		Left: unit.Dp(MARGIN1),
 	}
@@ -204,13 +231,32 @@ func (c *colorBlock) layout(gtx C) D {
 	return layout.Dimensions{Size: image.Point{X: size, Y: size}}
 }
 
-func buttonGetPalette(gtx C, s *State) layout.Widget {
+func (s *State) controlPanelSection(gtx C) layout.Widget {
 	margins := layout.UniformInset(unit.Dp(MARGIN1))
 
 	return func(gtx C) D {
+		return layout.Flex{
+			Spacing: layout.SpaceEvenly,
+		}.Layout(gtx,
+			layout.Flexed(1, s.buttonWidget(gtx, "Get palette", &s.buttonGetPalette, margins, s.curImg == nil)),
+			layout.Rigid(s.buttonWidget(gtx, "Choose file", &s.buttonChooseFile, margins, s.loadingPalette)),
+		)
+	}
+}
+
+func (s *State) buttonWidget(
+	gtx C,
+	label string,
+	button *widget.Clickable,
+	margins layout.Inset,
+	disabled bool) layout.Widget {
+	return func(gtx C) D {
 		return margins.Layout(gtx,
 			func(gtx C) D {
-				btn := material.Button(s.th, &s.buttonGetPalette, "Get palette")
+				if disabled {
+					gtx = gtx.Disabled()
+				}
+				btn := material.Button(s.th, button, label)
 				return btn.Layout(gtx)
 			},
 		)
