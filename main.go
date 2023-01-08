@@ -12,15 +12,6 @@ import (
 	"gioui.org/unit"
 )
 
-type (
-	C = layout.Context
-	D = layout.Dimensions
-)
-
-const (
-	MARGIN1 = 25
-)
-
 var programState wid.State
 
 func main() {

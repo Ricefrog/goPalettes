@@ -30,16 +30,16 @@ const (
 )
 
 type State struct {
-	Th               *material.Theme
-	CurImg           image.Image
-	CurImgWidget     widget.Image
-	Palette          []ColorBlock
-	LoadingPalette   bool
-	ButtonGetPalette widget.Clickable
+	th               *material.Theme
+	curImg           image.Image
+	curImgWidget     widget.Image
+	palette          []colorBlock
+	loadingPalette   bool
+	buttonGetPalette widget.Clickable
 }
 
 func (s *State) Init() {
-	s.Th = material.NewTheme(gofont.Collection())
+	s.th = material.NewTheme(gofont.Collection())
 }
 
 func (s *State) SetCurImage(filePath string) error {
@@ -54,34 +54,34 @@ func (s *State) SetCurImage(filePath string) error {
 		return err
 	}
 
-	s.CurImg = img
-	s.CurImgWidget.Src = paint.NewImageOp(img)
-	s.CurImgWidget.Fit = widget.ScaleDown
-	s.CurImgWidget.Position = layout.Center
+	s.curImg = img
+	s.curImgWidget.Src = paint.NewImageOp(img)
+	s.curImgWidget.Fit = widget.ScaleDown
+	s.curImgWidget.Position = layout.Center
 
 	return nil
 }
 
 func (s *State) Layout(w *app.Window, gtx C) {
-	if s.ButtonGetPalette.Clicked() {
+	if s.buttonGetPalette.Clicked() {
 		go func() {
-			s.LoadingPalette = true
+			s.loadingPalette = true
 			numOfColors := 5
 			goRoutines := runtime.NumCPU()
 			var tolerance float64 = 10
 			colors := imageManip.ExtractPaletteConcurrent(
-				s.CurImg,
+				s.curImg,
 				numOfColors,
 				goRoutines,
 				tolerance,
 			)
 			fmt.Println(colors)
-			p := make([]ColorBlock, len(colors))
+			p := make([]colorBlock, len(colors))
 			for i, c := range colors {
-				p[i] = CreateColorBlock(c.ColString)
+				p[i] = createColorBlock(c.ColString)
 			}
-			s.Palette = p
-			s.LoadingPalette = false
+			s.palette = p
+			s.loadingPalette = false
 			w.Invalidate()
 		}()
 	}
@@ -91,19 +91,19 @@ func (s *State) Layout(w *app.Window, gtx C) {
 		Spacing: layout.SpaceStart,
 	}.Layout(gtx,
 		layout.Flexed(1,
-			ImageSection(gtx, &s.CurImgWidget),
+			imageSection(gtx, &s.curImgWidget),
 		),
 		layout.Rigid(
-			PaletteSection(gtx, s),
+			paletteSection(gtx, s),
 		),
 		layout.Rigid(
-			ButtonGetPalette(gtx, s),
+			buttonGetPalette(gtx, s),
 		),
 	)
 
 }
 
-func ImageSection(gtx C, imgWidget *widget.Image) layout.Widget {
+func imageSection(gtx C, imgWidget *widget.Image) layout.Widget {
 	return func(gtx C) D {
 
 		margins := layout.UniformInset(unit.Dp(MARGIN1))
@@ -123,24 +123,24 @@ func ImageSection(gtx C, imgWidget *widget.Image) layout.Widget {
 	}
 }
 
-func PaletteSection(gtx C, s *State) layout.Widget {
+func paletteSection(gtx C, s *State) layout.Widget {
 	margins := layout.Inset{
 		Left: unit.Dp(MARGIN1),
 	}
 
-	label := material.H3(s.Th, "Palette: ").Layout
+	label := material.H3(s.th, "Palette: ").Layout
 	var innerWidget layout.Widget
-	if s.LoadingPalette {
-		innerWidget = material.H6(s.Th, "Generating palette...").Layout
-	} else if len(s.Palette) == 0 {
-		innerWidget = material.H6(s.Th, "None").Layout
+	if s.loadingPalette {
+		innerWidget = material.H6(s.th, "Generating palette...").Layout
+	} else if len(s.palette) == 0 {
+		innerWidget = material.H6(s.th, "None").Layout
 	} else {
 		var children []layout.FlexChild
-		for i := range s.Palette {
-			block := &s.Palette[i]
+		for i := range s.palette {
+			block := &s.palette[i]
 			children = append(children,
 				layout.Rigid(func(gtx C) D {
-					return layout.UniformInset(unit.Dp(10)).Layout(gtx, block.Layout)
+					return layout.UniformInset(unit.Dp(10)).Layout(gtx, block.layout)
 				}),
 			)
 		}
@@ -163,19 +163,19 @@ func PaletteSection(gtx C, s *State) layout.Widget {
 	}
 }
 
-type ColorBlock struct {
+type colorBlock struct {
 	hexCode string
 	col     color.NRGBA
 }
 
-func CreateColorBlock(hexCode string) ColorBlock {
-	return ColorBlock{
+func createColorBlock(hexCode string) colorBlock {
+	return colorBlock{
 		hexCode: hexCode,
 		col:     imageManip.HexToNRGBA(hexCode),
 	}
 }
 
-func (c *ColorBlock) Layout(gtx C) D {
+func (c *colorBlock) layout(gtx C) D {
 	const size = 30
 	yOffset := 5 // TODO: figure out how to make this dynamic based on height of label
 	//yOffset := (gtx.Constraints.Max.Y - size) / 2
@@ -204,13 +204,13 @@ func (c *ColorBlock) Layout(gtx C) D {
 	return layout.Dimensions{Size: image.Point{X: size, Y: size}}
 }
 
-func ButtonGetPalette(gtx C, s *State) layout.Widget {
+func buttonGetPalette(gtx C, s *State) layout.Widget {
 	margins := layout.UniformInset(unit.Dp(MARGIN1))
 
 	return func(gtx C) D {
 		return margins.Layout(gtx,
 			func(gtx C) D {
-				btn := material.Button(s.Th, &s.ButtonGetPalette, "Get palette")
+				btn := material.Button(s.th, &s.buttonGetPalette, "Get palette")
 				return btn.Layout(gtx)
 			},
 		)
