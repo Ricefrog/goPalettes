@@ -8,9 +8,11 @@ import (
 	"log"
 	"os"
 	"runtime"
+	"time"
 
 	"gioui.org/app"
 	"gioui.org/font/gofont"
+	"gioui.org/io/clipboard"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -29,6 +31,7 @@ type (
 
 const (
 	MARGIN1 = 25
+	MARGIN2 = 10
 )
 
 type State struct {
@@ -36,13 +39,17 @@ type State struct {
 	curImg           image.Image
 	curImgWidget     widget.Image
 	palette          []colorBlock
+	paletteMsg       string
+	paletteMsgTimer  *time.Timer
 	loadingPalette   bool
 	buttonGetPalette widget.Clickable
 	buttonChooseFile widget.Clickable
+	w                *app.Window
 }
 
-func (s *State) Init() {
+func (s *State) Init(w *app.Window) {
 	s.th = material.NewTheme(gofont.Collection())
+	s.w = w
 }
 
 func (s *State) SetCurImage(filePath string) error {
@@ -65,7 +72,19 @@ func (s *State) SetCurImage(filePath string) error {
 	return nil
 }
 
-func (s *State) Layout(w *app.Window, gtx C) {
+func (s *State) setPaletteMsg(msg string) {
+	if s.paletteMsgTimer != nil {
+		s.paletteMsgTimer.Stop()
+	}
+
+	s.paletteMsg = msg
+	s.paletteMsgTimer = time.AfterFunc(time.Second*2, func() {
+		s.paletteMsg = ""
+		s.w.Invalidate()
+	})
+}
+
+func (s *State) Layout(gtx C) {
 
 	if s.buttonChooseFile.Clicked() {
 		path, err := dialog.File().Filter("image", "png", "jpg").Load()
@@ -102,7 +121,7 @@ func (s *State) Layout(w *app.Window, gtx C) {
 			}
 			s.palette = p
 			s.loadingPalette = false
-			w.Invalidate()
+			s.w.Invalidate()
 		}()
 	}
 
@@ -162,15 +181,23 @@ func (s *State) paletteSection(gtx C) layout.Widget {
 	} else if len(s.palette) == 0 {
 		innerWidget = material.H6(s.th, "None").Layout
 	} else {
+		margins2 := layout.UniformInset(MARGIN2)
 		var children []layout.FlexChild
 		for i := range s.palette {
 			block := &s.palette[i]
 			children = append(children,
 				layout.Rigid(func(gtx C) D {
-					return layout.UniformInset(unit.Dp(10)).Layout(gtx, block.layout)
+					//return layout.UniformInset(unit.Dp(10)).Layout(gtx, block.layout(gtx, s))
+					return margins2.Layout(gtx, block.layout(gtx, s))
 				}),
 			)
 		}
+		children = append(children, layout.Rigid(
+			func(gtx C) D {
+				return margins2.Layout(gtx, material.H6(s.th, s.paletteMsg).Layout)
+			},
+		))
+
 		innerWidget = func(gtx C) D { return layout.Flex{}.Layout(gtx, children...) }
 	}
 
@@ -202,33 +229,34 @@ func createColorBlock(hexCode string) colorBlock {
 	}
 }
 
-func (c *colorBlock) layout(gtx C) D {
-	const size = 30
-	yOffset := 5 // TODO: figure out how to make this dynamic based on height of label
-	//yOffset := (gtx.Constraints.Max.Y - size) / 2
-	//fmt.Printf("%v %d\n", gtx.Constraints, yOffset)
+func (c *colorBlock) layout(gtx C, s *State) layout.Widget {
+	return func(gtx C) D {
+		const size = 30
+		yOffset := 5 // TODO: figure out how to make this dynamic based on height of label
 
-	for _, e := range gtx.Events(c) {
-		if e, ok := e.(pointer.Event); ok {
-			if e.Type == pointer.Press {
-				fmt.Printf("%s was clicked.\n", c.hexCode)
+		for _, e := range gtx.Events(c) {
+			if e, ok := e.(pointer.Event); ok {
+				if e.Type == pointer.Press {
+					clipboard.WriteOp{Text: c.hexCode}.Add(gtx.Ops)
+					go s.setPaletteMsg(fmt.Sprintf("Copied %s to clipboard.", c.hexCode))
+				}
 			}
 		}
+
+		op.Offset(image.Point{Y: yOffset}).Add(gtx.Ops)
+		area := clip.Rect{
+			Max: image.Point{size, size},
+		}.Push(gtx.Ops)
+		pointer.InputOp{Tag: c, Types: pointer.Press}.Add(gtx.Ops)
+		pointer.CursorPointer.Add(gtx.Ops)
+
+		paint.ColorOp{Color: c.col}.Add(gtx.Ops)
+		paint.PaintOp{}.Add(gtx.Ops)
+
+		area.Pop()
+
+		return layout.Dimensions{Size: image.Point{X: size, Y: size}}
 	}
-
-	op.Offset(image.Point{Y: yOffset}).Add(gtx.Ops)
-	area := clip.Rect{
-		Max: image.Point{size, size},
-	}.Push(gtx.Ops)
-	pointer.InputOp{Tag: c, Types: pointer.Press}.Add(gtx.Ops)
-	pointer.CursorPointer.Add(gtx.Ops)
-
-	paint.ColorOp{Color: c.col}.Add(gtx.Ops)
-	paint.PaintOp{}.Add(gtx.Ops)
-
-	area.Pop()
-
-	return layout.Dimensions{Size: image.Point{X: size, Y: size}}
 }
 
 func (s *State) controlPanelSection(gtx C) layout.Widget {

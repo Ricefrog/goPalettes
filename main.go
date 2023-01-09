@@ -16,15 +16,6 @@ import (
 var programState ui.State
 
 func main() {
-	programState.Init()
-
-	/*
-		imgPath := "./images/basado1.png"
-		err := programState.SetCurImage(imgPath)
-		if err != nil {
-			log.Fatal(err)
-		}
-	*/
 
 	go func() {
 		w := app.NewWindow(
@@ -32,6 +23,7 @@ func main() {
 			app.MinSize(unit.Dp(300), unit.Dp(600)),
 		)
 
+		programState.Init(w)
 		if err := draw(w); err != nil {
 			log.Fatal(err)
 		}
@@ -47,7 +39,7 @@ func draw(w *app.Window) error {
 		switch e := e.(type) {
 		case system.FrameEvent:
 			gtx := layout.NewContext(&ops, e)
-			programState.Layout(w, gtx)
+			programState.Layout(gtx)
 			e.Frame(gtx.Ops)
 		case system.DestroyEvent:
 			return e.Err
