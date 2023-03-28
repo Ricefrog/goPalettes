@@ -1,36 +1,31 @@
 package main
 
 import (
-	"goPalettes/imageManip"
-	"os"
-	"log"
-	"image"
 	"fmt"
-	"strings"
+	"goPalettes/imageManip"
+	"image"
+	"log"
+	"os"
 	"strconv"
+	"strings"
 )
 
 var test image.Image
 
 func main() {
-	//imageManip.Stub_1()
-	//diffs()
-	//testColStringToArr()
-	//fmt.Println(test)
-	//fmt.Println(test == nil)
-	//testingRgbaToHex()
-	//splittingColFreqMapTesting()
-	/*
-	testMap := make(map[string]int)
-	mapTest(testMap)
-	fmt.Println(testMap)
-	*/
-	testArrMap := make([]map[string]int, 5)
-	for i := 0; i < 5; i++ {
-		testArrMap[i] = make(map[string]int)
+	filename := "images/basado1.png"
+	f, err := os.Open(filename)
+	if err != nil {
+		log.Fatal(err)
 	}
-	mapArrTest(testArrMap)
-	fmt.Println(testArrMap)
+	defer f.Close()
+
+	img, _, err := image.Decode(f)
+	if err != nil {
+		return err
+	}
+
+	GetPaletteMC(img, 8)
 }
 
 func mapArrTest(m []map[string]int) {
@@ -76,18 +71,18 @@ func rgbaToHex(rgba string) string {
 
 	rh := strconv.FormatInt(int64(ri), 16)
 	if len(rh) == 1 {
-		rh = "0"+rh
+		rh = "0" + rh
 	}
 	gh := strconv.FormatInt(int64(gi), 16)
 	if len(gh) == 1 {
-		gh = "0"+gh
+		gh = "0" + gh
 	}
 	bh := strconv.FormatInt(int64(bi), 16)
 	if len(bh) == 1 {
-		bh = "0"+bh
+		bh = "0" + bh
 	}
 
-	ret := "#"+rh+gh+bh
+	ret := "#" + rh + gh + bh
 	return ret
 }
 
@@ -105,14 +100,14 @@ func diffs() {
 	IMAGE_PATH := imageManip.IMAGE_PATH
 	s, e, err := imageManip.ParseArgs()
 	// s is jpeg and e is png
-	jpgFile, err := os.Open(IMAGE_PATH+s)
+	jpgFile, err := os.Open(IMAGE_PATH + s)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer jpgFile.Close()
 	jpgData, _, err := image.Decode(jpgFile)
 
-	pngFile, err := os.Open(IMAGE_PATH+e)
+	pngFile, err := os.Open(IMAGE_PATH + e)
 	if err != nil {
 		log.Fatal(err)
 	}
