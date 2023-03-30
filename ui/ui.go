@@ -7,7 +7,6 @@ import (
 	"image/color"
 	"log"
 	"os"
-	"runtime"
 	"time"
 
 	"gioui.org/app"
@@ -105,19 +104,23 @@ func (s *State) Layout(gtx C) {
 	if s.buttonGetPalette.Clicked() {
 		go func() {
 			s.loadingPalette = true
-			numOfColors := 5
-			goRoutines := runtime.NumCPU()
-			var tolerance float64 = 10
-			colors := imageManip.ExtractPaletteConcurrent(
-				s.curImg,
-				numOfColors,
-				goRoutines,
-				tolerance,
-			)
-			fmt.Println(colors)
+			/*
+				numOfColors := 5
+				goRoutines := runtime.NumCPU()
+				var tolerance float64 = 10
+				colors := imageManip.ExtractPaletteConcurrent(
+					s.curImg,
+					numOfColors,
+					goRoutines,
+					tolerance,
+				)
+				fmt.Println(colors)
+			*/
+
+			colors := imageManip.GetPaletteMC(&s.curImg, 3)
 			p := make([]colorBlock, len(colors))
 			for i, c := range colors {
-				p[i] = createColorBlock(c.ColString)
+				p[i] = createColorBlock(c)
 			}
 			s.palette = p
 			s.loadingPalette = false
@@ -187,7 +190,6 @@ func (s *State) paletteSection(gtx C) layout.Widget {
 			block := &s.palette[i]
 			children = append(children,
 				layout.Rigid(func(gtx C) D {
-					//return layout.UniformInset(unit.Dp(10)).Layout(gtx, block.layout(gtx, s))
 					return margins2.Layout(gtx, block.layout(gtx, s))
 				}),
 			)
@@ -230,32 +232,39 @@ func createColorBlock(hexCode string) colorBlock {
 }
 
 func (c *colorBlock) layout(gtx C, s *State) layout.Widget {
-	return func(gtx C) D {
-		const size = 30
-		yOffset := 5 // TODO: figure out how to make this dynamic based on height of label
+	border := widget.Border{
+		Color: color.NRGBA{A: 255},
+		Width: unit.Dp(2),
+	}
 
-		for _, e := range gtx.Events(c) {
-			if e, ok := e.(pointer.Event); ok {
-				if e.Type == pointer.Press {
-					clipboard.WriteOp{Text: c.hexCode}.Add(gtx.Ops)
-					go s.setPaletteMsg(fmt.Sprintf("Copied %s to clipboard.", c.hexCode))
+	return func(gtx C) D {
+		return border.Layout(gtx, func(gtx C) D {
+			const size = 30
+			yOffset := 5 // TODO: figure out how to make this dynamic based on height of label
+
+			for _, e := range gtx.Events(c) {
+				if e, ok := e.(pointer.Event); ok {
+					if e.Type == pointer.Press {
+						clipboard.WriteOp{Text: c.hexCode}.Add(gtx.Ops)
+						go s.setPaletteMsg(fmt.Sprintf("Copied %s to clipboard.", c.hexCode))
+					}
 				}
 			}
-		}
 
-		op.Offset(image.Point{Y: yOffset}).Add(gtx.Ops)
-		area := clip.Rect{
-			Max: image.Point{size, size},
-		}.Push(gtx.Ops)
-		pointer.InputOp{Tag: c, Types: pointer.Press}.Add(gtx.Ops)
-		pointer.CursorPointer.Add(gtx.Ops)
+			op.Offset(image.Point{Y: yOffset}).Add(gtx.Ops)
+			area := clip.Rect{
+				Max: image.Point{size, size},
+			}.Push(gtx.Ops)
+			pointer.InputOp{Tag: c, Types: pointer.Press}.Add(gtx.Ops)
+			pointer.CursorPointer.Add(gtx.Ops)
 
-		paint.ColorOp{Color: c.col}.Add(gtx.Ops)
-		paint.PaintOp{}.Add(gtx.Ops)
+			paint.ColorOp{Color: c.col}.Add(gtx.Ops)
+			paint.PaintOp{}.Add(gtx.Ops)
 
-		area.Pop()
+			area.Pop()
 
-		return layout.Dimensions{Size: image.Point{X: size, Y: size}}
+			return layout.Dimensions{Size: image.Point{X: size, Y: size}}
+		})
 	}
 }
 

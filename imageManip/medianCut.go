@@ -1,40 +1,30 @@
 package imageManip
 
 import (
-	"errors"
 	"fmt"
 	"image"
+	"math"
 	"sort"
 )
 
 type pix struct {
-	r uint32
-	g uint32
-	b uint32
+	r uint64
+	g uint64
+	b uint64
 }
 
-func notPowerOfTwo(n uint) bool {
-	i := 0
-	for {
-		power := uint(1 << i)
-		if n == power {
-			return true
-		}
-		if n < power {
-			break
-		}
-	}
-	return false
+func (p pix) HexString() string {
+	return fmt.Sprintf("#%02x%02x%02x", p.r, p.g, p.b)
 }
 
-func getRanges(img_arr []pix) (uint32, uint32, uint32) {
+func getRanges(img_arr []pix) (uint64, uint64, uint64) {
 	var (
-		rmin uint32 = ^uint32(0)
-		rmax uint32 = 0
-		gmin uint32 = ^uint32(0)
-		gmax uint32 = 0
-		bmin uint32 = ^uint32(0)
-		bmax uint32 = 0
+		rmin uint64 = ^uint64(0)
+		rmax uint64 = 0
+		gmin uint64 = ^uint64(0)
+		gmax uint64 = 0
+		bmin uint64 = ^uint64(0)
+		bmax uint64 = 0
 	)
 
 	for _, p := range img_arr {
@@ -72,11 +62,15 @@ func getRanges(img_arr []pix) (uint32, uint32, uint32) {
 
 func average(arr []pix) pix {
 	var (
-		rsum uint32
-		gsum uint32
-		bsum uint32
+		rsum uint64
+		gsum uint64
+		bsum uint64
+
+		ravg uint64
+		gavg uint64
+		bavg uint64
 	)
-	l := uint32(len(arr))
+	l := uint64(len(arr))
 
 	for _, p := range arr {
 		rsum += p.r
@@ -84,10 +78,14 @@ func average(arr []pix) pix {
 		bsum += p.b
 	}
 
+	ravg = rsum / l
+	gavg = gsum / l
+	bavg = bsum / l
+
 	return pix{
-		r: rsum / l,
-		g: gsum / l,
-		b: bsum / l,
+		r: ravg,
+		g: gavg,
+		b: bavg,
 	}
 }
 
@@ -100,20 +98,30 @@ func flatten(img image.Image) []pix {
 		for i := 0; i < mX; i++ {
 			col := img.At(i, j)
 			r, g, b, _ := col.RGBA()
-			flat[mX*j+i] = pix{r, g, b}
+
+			// 16-bit to 8-bit
+			r = r >> 8
+			g = g >> 8
+			b = b >> 8
+
+			flat[mX*j+i] = pix{uint64(r), uint64(g), uint64(b)}
 		}
 	}
 
 	return flat
 }
 
-func split(img_arr []pix, depth uint) pix {
+func split(img_arr []pix, depth uint, palette []string, index *uint) {
 	if len(img_arr) == 0 {
-		return pix{0, 0, 0}
+		fmt.Printf("Length of img_arr is 0. Returning.\n")
+		return
 	}
 
 	if depth == 0 {
-		return average(img_arr)
+		hexCode := average(img_arr).HexString()
+		palette[*index] = hexCode
+		*index++
+		return
 	}
 
 	var highestRange int
@@ -128,30 +136,27 @@ func split(img_arr []pix, depth uint) pix {
 
 	switch highestRange {
 	case 0:
-		sort.SliceStable(img_arr, func(i, j int) bool { return img_arr[i].r < img_arr[i].r })
+		sort.SliceStable(img_arr, func(i, j int) bool { return img_arr[i].r < img_arr[j].r })
 	case 1:
-		sort.SliceStable(img_arr, func(i, j int) bool { return img_arr[i].g < img_arr[i].g })
+		sort.SliceStable(img_arr, func(i, j int) bool { return img_arr[i].g < img_arr[j].g })
 	case 2:
-		sort.SliceStable(img_arr, func(i, j int) bool { return img_arr[i].b < img_arr[i].b })
+		sort.SliceStable(img_arr, func(i, j int) bool { return img_arr[i].b < img_arr[j].b })
 	}
 
 	medianIndex := len(img_arr) / 2
 
-	// TODO: Use shared ds instead of returns
-	split(img_arr[:medianIndex], depth-1)
-	return split(img_arr[medianIndex:], depth-1)
+	split(img_arr[:medianIndex], depth-1, palette, index)
+	split(img_arr[medianIndex:], depth-1, palette, index)
+	return
 }
 
 // returns hexcodes for palette of num colors where num is a power of 2
-func GetPaletteMC(img *image.Image, n uint) ([]string, error) {
-	if notPowerOfTwo(n) {
-		err := errors.New(
-			fmt.Sprintf("n must be power of two. Received %d.", n),
-		)
-		return []string{}, err
-	}
-
+func GetPaletteMC(img *image.Image, n uint) []string {
 	flat := flatten(*img)
-	split(flat, n)
-	return []string{}, nil
+
+	var index uint
+	palette := make([]string, int(math.Pow(2, float64(n))))
+
+	split(flat, n, palette, &index)
+	return palette
 }
