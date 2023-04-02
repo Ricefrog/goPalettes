@@ -76,7 +76,6 @@ func runHeadless(filePath string) {
 	colors := imageManip.GetPaletteMC(&img, 4)
 
 	for _, c := range colors {
-		fmt.Printf("%s ", c)
+		fmt.Printf("%s\n", c)
 	}
-	fmt.Println()
 }

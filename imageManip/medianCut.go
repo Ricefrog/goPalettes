@@ -112,7 +112,7 @@ func flatten(img image.Image) []pix {
 	return flat
 }
 
-func split(img_arr []pix, depth uint, palette []string, index *uint, wg *sync.WaitGroup) {
+func split(img_arr []pix, depth uint, palette []string, index *uint, wg *sync.WaitGroup, mu *sync.Mutex) {
 	if wg != nil {
 		defer wg.Done()
 	}
@@ -124,8 +124,10 @@ func split(img_arr []pix, depth uint, palette []string, index *uint, wg *sync.Wa
 
 	if depth == 0 {
 		hexCode := average(img_arr).HexString()
+		mu.Lock()
 		palette[*index] = hexCode
 		*index++
+		mu.Unlock()
 		return
 	}
 
@@ -152,8 +154,8 @@ func split(img_arr []pix, depth uint, palette []string, index *uint, wg *sync.Wa
 
 	var wgInner sync.WaitGroup
 	wgInner.Add(2)
-	go split(img_arr[:medianIndex], depth-1, palette, index, &wgInner)
-	go split(img_arr[medianIndex:], depth-1, palette, index, &wgInner)
+	go split(img_arr[:medianIndex], depth-1, palette, index, &wgInner, mu)
+	go split(img_arr[medianIndex:], depth-1, palette, index, &wgInner, mu)
 	wgInner.Wait()
 }
 
@@ -164,6 +166,19 @@ func GetPaletteMC(img *image.Image, n uint) []string {
 	var index uint
 	palette := make([]string, int(math.Pow(2, float64(n))))
 
-	split(flat, n, palette, &index, nil)
-	return palette
+	var mu sync.Mutex
+	split(flat, n, palette, &index, nil, &mu)
+
+	seen := make(map[string]struct{})
+	noRepeats := make([]string, 0)
+	for _, c := range palette {
+		if _, ok := seen[c]; ok {
+			continue
+		}
+
+		seen[c] = struct{}{}
+		noRepeats = append(noRepeats, c)
+	}
+
+	return noRepeats
 }
