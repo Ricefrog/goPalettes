@@ -104,24 +104,13 @@ func (s *State) Layout(gtx C) {
 	if s.buttonGetPalette.Clicked() {
 		go func() {
 			s.loadingPalette = true
-			/*
-				numOfColors := 5
-				goRoutines := runtime.NumCPU()
-				var tolerance float64 = 10
-				colors := imageManip.ExtractPaletteConcurrent(
-					s.curImg,
-					numOfColors,
-					goRoutines,
-					tolerance,
-				)
-				fmt.Println(colors)
-			*/
 
-			colors := imageManip.GetPaletteMC(&s.curImg, 3)
+			colors := imageManip.GetPaletteMC(&s.curImg, 4)
 			p := make([]colorBlock, len(colors))
 			for i, c := range colors {
 				p[i] = createColorBlock(c)
 			}
+
 			s.palette = p
 			s.loadingPalette = false
 			s.w.Invalidate()
