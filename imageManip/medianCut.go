@@ -5,6 +5,7 @@ import (
 	"image"
 	"math"
 	"sort"
+	"sync"
 )
 
 type pix struct {
@@ -111,7 +112,11 @@ func flatten(img image.Image) []pix {
 	return flat
 }
 
-func split(img_arr []pix, depth uint, palette []string, index *uint) {
+func split(img_arr []pix, depth uint, palette []string, index *uint, wg *sync.WaitGroup) {
+	if wg != nil {
+		defer wg.Done()
+	}
+
 	if len(img_arr) == 0 {
 		fmt.Printf("Length of img_arr is 0. Returning.\n")
 		return
@@ -145,9 +150,11 @@ func split(img_arr []pix, depth uint, palette []string, index *uint) {
 
 	medianIndex := len(img_arr) / 2
 
-	split(img_arr[:medianIndex], depth-1, palette, index)
-	split(img_arr[medianIndex:], depth-1, palette, index)
-	return
+	var wgInner sync.WaitGroup
+	wgInner.Add(2)
+	go split(img_arr[:medianIndex], depth-1, palette, index, &wgInner)
+	go split(img_arr[medianIndex:], depth-1, palette, index, &wgInner)
+	wgInner.Wait()
 }
 
 // returns hexcodes for palette of num colors where num is a power of 2
@@ -157,6 +164,6 @@ func GetPaletteMC(img *image.Image, n uint) []string {
 	var index uint
 	palette := make([]string, int(math.Pow(2, float64(n))))
 
-	split(flat, n, palette, &index)
+	split(flat, n, palette, &index, nil)
 	return palette
 }
